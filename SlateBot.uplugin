@@ -1,0 +1,24 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "SlateBot",
+	"Description": "Automation toolkit for Slate widget interaction and testing",
+	"Category": "Testing",
+	"CreatedBy": "Wu Zhiwei",
+	"CreatedByURL": "https://github.com/9087",
+	"DocsURL": "",
+	"MarketplaceURL": "",
+	"SupportURL": "",
+	"CanContainContent": false,
+	"IsBetaVersion": true,
+	"IsExperimentalVersion": false,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "SlateBot",
+			"Type": "EditorAndProgram",
+			"LoadingPhase": "Default"
+		}
+	]
+}
