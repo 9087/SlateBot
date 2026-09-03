@@ -2,6 +2,7 @@
 
 #include "SlateBotInstanceRegistry.h"
 #include "SSlateBot.h"
+#include "SlateBotFunctionLibrary.h"
 
 FSlateBotInstanceRegistry& FSlateBotInstanceRegistry::Get()
 {
@@ -22,6 +23,11 @@ void FSlateBotInstanceRegistry::Unregister(FName InstanceName)
 {
 	Instances.Remove(InstanceName);
 	InstanceOrder.Remove(InstanceName);
+
+	// Drop the widget-tree diff snapshot bound to this instance so it neither
+	// accumulates in the global cache nor poisons a same-name instance that
+	// reopens later (ISSUE-003/006).
+	USlateBotFunctionLibrary::CleanupInstanceSnapshot(InstanceName);
 }
 
 TSharedPtr<SSlateBot> FSlateBotInstanceRegistry::Find(FName InstanceName) const

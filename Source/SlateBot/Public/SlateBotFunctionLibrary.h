@@ -477,6 +477,16 @@ public:
 		int32 Width = 0,
 		int32 Height = 0);
 
+	/**
+	 * Removes the widget-tree diff snapshot for a given instance.
+	 * Called by FSlateBotInstanceRegistry::Unregister() so the snapshot is
+	 * cleaned up when an instance is destroyed (keeps the global cache from
+	 * accumulating stale entries and from poisoning a same-name instance that
+	 * reopens later).
+	 */
+	UFUNCTION(BlueprintCallable, Category = "SlateBot|Diff")
+	static void CleanupInstanceSnapshot(FName InstanceName);
+
 private:
 	struct FWidgetPropertyValue
 	{

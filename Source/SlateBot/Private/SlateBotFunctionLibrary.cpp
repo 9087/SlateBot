@@ -414,14 +414,24 @@ TArray<FSlateBotTreeNodeInfo> USlateBotFunctionLibrary::GetWidgetTreeDiff(FName 
 {
 	TArray<FSlateBotTreeNodeInfo> Result;
 
-	FWidgetTreeSnapshot& Cache = WidgetTreeSnapshots.FindOrAdd(InstanceName);
-	const bool bIsFirstCall = Cache.Paths.IsEmpty();
+	// The registry (a lock-less TMap) and the UObject tree must only be touched
+	// on the game thread. Return empty otherwise, mirroring GetSlateBotInstances.
+	if (!IsInGameThread())
+	{
+		return Result;
+	}
 
+	// Resolve the instance before touching the snapshot cache so a destroyed or
+	// unknown instance never creates a stale snapshot entry (ISSUE-003/006).
 	UWidgetTree* WidgetTree = GetRootWidgetTree(InstanceName);
 	if (!WidgetTree || !WidgetTree->RootWidget)
 	{
 		return Result;
 	}
+
+	// Only now may we create/read the cache entry for a confirmed-live instance.
+	FWidgetTreeSnapshot& Cache = WidgetTreeSnapshots.FindOrAdd(InstanceName);
+	const bool bIsFirstCall = Cache.Paths.IsEmpty();
 
 	FWidgetTreeSnapshot Current;
 
@@ -546,6 +556,11 @@ TArray<FSlateBotTreeNodeInfo> USlateBotFunctionLibrary::GetWidgetTreeDiff(FName 
 }
 
 void USlateBotFunctionLibrary::ResetWidgetTreeCache(FName InstanceName)
+{
+	WidgetTreeSnapshots.Remove(InstanceName);
+}
+
+void USlateBotFunctionLibrary::CleanupInstanceSnapshot(FName InstanceName)
 {
 	WidgetTreeSnapshots.Remove(InstanceName);
 }
