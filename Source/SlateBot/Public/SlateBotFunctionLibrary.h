@@ -47,6 +47,40 @@ struct SLATEBOT_API FSlateBotOperationResult
 	}
 };
 
+/**
+ * Result returned by CaptureSlateBotScreenshot.
+ *
+ * Dedicated type so the screenshot-specific output (the saved file path)
+ * does not pollute the generic FSlateBotOperationResult used by the input
+ * simulation functions.
+ */
+USTRUCT(BlueprintType)
+struct SLATEBOT_API FSlateBotCaptureScreenshotResult
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlateBot")
+	bool bSuccess = true;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlateBot")
+	FName ErrorCode;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlateBot")
+	FString ErrorMessage;
+
+	/** Full path of the saved PNG on success (empty on failure). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlateBot")
+	FString ScreenshotPath;
+
+	FSlateBotCaptureScreenshotResult& Failure(const FName InErrorCode, const FString& InErrorMessage)
+	{
+		bSuccess = false;
+		ErrorCode = InErrorCode;
+		ErrorMessage = InErrorMessage;
+		return *this;
+	}
+};
+
 UENUM(BlueprintType)
 enum class ESlateBotClickType : uint8
 {
@@ -407,6 +441,41 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category = "SlateBot")
 	static FSlateBotOperationResult CloseSlateBotWindow(FName InstanceName);
+
+	// ── Capture ──────────────────────────────────────────────────────
+
+	/**
+	 * Renders the SlateBot instance (its SSlateBot and all wrapped content)
+	 * off-screen and writes it to a PNG file on disk.
+	 *
+	 * @param InstanceName  The SlateBot instance name.
+	 * @param OutputPath    Full file path (including .png extension). If
+	 *                      empty, a path is generated under the project
+	 *                      Saved/Screenshots directory with a timestamp.
+	 * @param Width         Optional output width in pixels (0 = use the
+	 *                      widget's current on-screen size, clamped).
+	 * @param Height        Optional output height in pixels (0 = use the
+	 *                      widget's current on-screen size, clamped).
+	 * @return Capture result. On success, ScreenshotPath holds the saved file.
+	 *
+	 * WebRemoteControl call payload structure:
+	 * {
+	 *   "ObjectPath": "/Script/SlateBot.Default__SlateBotFunctionLibrary",
+	 *   "FunctionName": "CaptureSlateBotScreenshot",
+	 *   "Parameters": {
+	 *     "InstanceName": "PuzzleApp",
+	 *     "OutputPath": "",
+	 *     "Width": 0,
+	 *     "Height": 0
+	 *   }
+	 * }
+	 */
+	UFUNCTION(BlueprintCallable, Category = "SlateBot")
+	static FSlateBotCaptureScreenshotResult CaptureSlateBotScreenshot(
+		FName InstanceName,
+		const FString& OutputPath = TEXT(""),
+		int32 Width = 0,
+		int32 Height = 0);
 
 private:
 	struct FWidgetPropertyValue

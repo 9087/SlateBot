@@ -16,6 +16,15 @@
 #include "HAL/PlatformTime.h"
 #include "Containers/Ticker.h"
 #include "Async/TaskGraphInterfaces.h"
+#include "Slate/WidgetRenderer.h"
+#include "Engine/TextureRenderTarget2D.h"
+#include "ImageUtils.h"
+#include "Serialization/BufferArchive.h"
+#include "Misc/Paths.h"
+#include "Misc/DateTime.h"
+#include "Misc/App.h"
+#include "HAL/FileManager.h"
+#include "Widgets/SWindow.h"
 
 TMap<FName, USlateBotFunctionLibrary::FWidgetTreeSnapshot> USlateBotFunctionLibrary::WidgetTreeSnapshots;
 
@@ -648,6 +657,106 @@ FSlateBotOperationResult USlateBotFunctionLibrary::CloseSlateBotWindow(FName Ins
 
 	Window->RequestDestroyWindow();
 	Result.bSuccess = true;
+	return Result;
+}
+
+
+FSlateBotCaptureScreenshotResult USlateBotFunctionLibrary::CaptureSlateBotScreenshot(
+	FName InstanceName, const FString& OutputPath, int32 Width, int32 Height)
+{
+	FSlateBotCaptureScreenshotResult Result;
+	if (!IsInGameThread())
+	{
+		return Result.Failure(TEXT("NotOnGameThread"),
+			TEXT("CaptureSlateBotScreenshot must be called on the game thread."));
+	}
+
+	const FSlateBotInstanceRegistry& Registry = FSlateBotInstanceRegistry::Get();
+	const TSharedPtr<SSlateBot> Instance = Registry.Find(InstanceName);
+	if (!Instance.IsValid())
+	{
+		return Result.Failure(TEXT("InstanceNotFound"),
+			FString::Printf(TEXT("No SlateBot instance named '%s'."), *InstanceName.ToString()));
+	}
+
+	if (!FApp::CanEverRender())
+	{
+		return Result.Failure(TEXT("RenderUnavailable"),
+			TEXT("Rendering is unavailable in this build (headless/server). Cannot capture a screenshot."));
+	}
+
+	// Resolve the instance to a Slate widget to render off-screen.
+	const TSharedRef<SWidget> SlateWidget = StaticCastSharedRef<SWidget>(Instance.ToSharedRef());
+
+	// Determine the render size: explicit override, else the widget's current
+	// on-screen size, else its desired size, else a sane default.
+	FVector2D DrawSize;
+	{
+		const FGeometry& CachedGeometry = SlateWidget->GetCachedGeometry();
+		const FVector2D CachedSize = CachedGeometry.GetAbsoluteSize();
+		const FVector2D DesiredSize = SlateWidget->GetDesiredSize();
+
+		DrawSize = (Width > 0 && Height > 0)
+			? FVector2D(static_cast<float>(Width), static_cast<float>(Height))
+			: (CachedSize.X >= 1.f && CachedSize.Y >= 1.f ? CachedSize : DesiredSize);
+
+		if (DrawSize.X < 1.f || DrawSize.Y < 1.f)
+		{
+			DrawSize = FVector2D(1200.f, 800.f);
+		}
+		// Bound the output to avoid pathological allocations for huge widgets.
+		DrawSize.X = FMath::Clamp(DrawSize.X, 64.f, 4096.f);
+		DrawSize.Y = FMath::Clamp(DrawSize.Y, 64.f, 4096.f);
+	}
+
+	// Render the widget into a fresh off-screen render target and flush the
+	// draw synchronously (bDeferRenderTargetUpdate = false) so we can read the
+	// pixels back in the same call.
+	TSharedRef<FWidgetRenderer> WidgetRenderer = MakeShared<FWidgetRenderer>(true, true);
+	UTextureRenderTarget2D* RenderTarget = WidgetRenderer->DrawWidget(SlateWidget, DrawSize);
+	if (!RenderTarget)
+	{
+		return Result.Failure(TEXT("RenderFailed"),
+			TEXT("The widget renderer failed to create a render target."));
+	}
+
+	// Resolve the output file path.
+	FString FullPath = OutputPath.TrimStartAndEnd();
+	if (FullPath.IsEmpty())
+	{
+		const FString ScreenshotDir = FPaths::Combine(FPaths::ProjectSavedDir(), TEXT("Screenshots"));
+		IFileManager::Get().MakeDirectory(*ScreenshotDir, true);
+		const FString Stamp = FDateTime::Now().ToString(TEXT("%Y%m%d_%H%M%S"));
+		FullPath = FPaths::Combine(ScreenshotDir,
+			FString::Printf(TEXT("%s_%s.png"), *InstanceName.ToString(), *Stamp));
+	}
+	else if (FPaths::GetExtension(FullPath).IsEmpty())
+	{
+		// Caller supplied a path without an extension — default to PNG.
+		FullPath += TEXT(".png");
+	}
+
+	// Encode the render target into a PNG buffer and write it to disk.
+	FBufferArchive Buffer;
+	if (!FImageUtils::ExportRenderTarget2DAsPNG(RenderTarget, Buffer))
+	{
+		return Result.Failure(TEXT("EncodeFailed"),
+			TEXT("Failed to encode the rendered widget as PNG."));
+	}
+
+	if (FArchive* Ar = IFileManager::Get().CreateFileWriter(*FullPath))
+	{
+		Ar->Serialize(const_cast<uint8*>(Buffer.GetData()), Buffer.Num());
+		delete Ar; // CreateFileWriter returns a new archive that we own.
+	}
+	else
+	{
+		return Result.Failure(TEXT("FileWriteFailed"),
+			FString::Printf(TEXT("Failed to create file: '%s'."), *FullPath));
+	}
+
+	Result.bSuccess = true;
+	Result.ScreenshotPath = FullPath;
 	return Result;
 }
 
