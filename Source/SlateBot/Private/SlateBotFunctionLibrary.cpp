@@ -144,6 +144,43 @@ FSlateBotOperationResult USlateBotFunctionLibrary::SendClick(UWidget* Widget, co
 	return Result;
 }
 
+FSlateBotOperationResult USlateBotFunctionLibrary::FocusWidget(UWidget* Widget)
+{
+	FSlateBotOperationResult Result;
+	if (!IsInGameThread())
+	{
+		return Result.Failure(TEXT("NotOnGameThread"),
+			TEXT("This function must be called on the game thread."));
+	}
+
+	if (!Widget)
+	{
+		return Result.Failure(TEXT("InvalidArgument"), TEXT("Widget must not be null."));
+	}
+	TSharedPtr<SWidget> SlateWidget = Widget->GetCachedWidget();
+	if (!SlateWidget.IsValid())
+	{
+		return Result.Failure(
+			TEXT("WidgetNotReady"),
+			TEXT("Widget has no cached Slate widget. Ensure it is constructed and visible."));
+	}
+
+	// Bring the owning window to the front so it is the active window;
+	// otherwise Slate will not route keyboard input to it.
+	if (const TSharedPtr<SWindow> FoundWindow = FSlateApplication::Get().FindWidgetWindow(SlateWidget.ToSharedRef()))
+	{
+		FoundWindow->BringToFront(true);
+	}
+
+	// Move keyboard focus to the widget so subsequent SendKey / SendText land
+	// on it. With the window brought to front this is the gameplay target for
+	// typed input, exactly like a user clicking into a text box first.
+	FSlateApplication::Get().SetKeyboardFocus(SlateWidget, EFocusCause::SetDirectly);
+
+	Result.bSuccess = true;
+	return Result;
+}
+
 FSlateBotOperationResult USlateBotFunctionLibrary::SendKey(const FKey& Key, const FSlateBotModifierKeys& Modifiers)
 {
 	FSlateBotOperationResult Result;

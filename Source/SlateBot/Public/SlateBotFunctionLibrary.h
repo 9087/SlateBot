@@ -314,7 +314,30 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "SlateBot")
 	static FSlateBotOperationResult SendClick(UWidget* Widget, const FSlateBotSendClickOptions& Options);
 
-	// ── Keyboard input ────────────────────────────────────────────────
+	// ── Keyboard/focus input ──────────────────────────────────────────
+
+	/**
+	 * Moves keyboard focus to the specified widget and brings its window to
+	 * the front. Subsequent SendKey / SendText calls will be routed to this
+	 * widget instead of whatever had focus before.
+	 *
+	 * This unblocks multi-field form automation: call FocusWidget once per
+	 * field, then SendText to type into it. (SendClick alone does not
+	 * guarantee the click target gains keyboard focus.)
+	 *
+	 * @param Widget  The UMG widget to focus.
+	 *
+	 * WebRemoteControl call payload structure:
+	 * {
+	 *   "ObjectPath": "/Script/SlateBot.Default__SlateBotFunctionLibrary",
+	 *   "FunctionName": "FocusWidget",
+	 *   "Parameters": {
+	 *     "Widget": "/Game/MyWidgetBlueprint.MyWidgetBlueprint_C:WidgetTree.EditBox_123",
+	 *   }
+	 * }
+	 */
+	UFUNCTION(BlueprintCallable, Category = "SlateBot")
+	static FSlateBotOperationResult FocusWidget(UWidget* Widget);
 
 	/**
 	 * Simulates a key press (down + up) on the currently focused widget.
