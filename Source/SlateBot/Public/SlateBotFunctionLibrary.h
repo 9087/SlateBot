@@ -428,6 +428,12 @@ public:
 	/**
 	 * Simulates a drag gesture: press at FromPosition, move to ToPosition
 	 * in Steps increments over DurationMs, then release.
+	 *
+	 * The gesture is driven frame-by-frame on the game thread via a ticker,
+	 * so it never blocks the frame loop with a synchronous sleep. This call
+	 * returns immediately once the drag has been *scheduled* (bSuccess = true
+	 * means scheduled, not completed). To observe the drag's effect, wait via
+	 * WaitForWidgetTreeDiff (or sleep) before reading state.
 	 */
 	UFUNCTION(BlueprintCallable, Category = "SlateBot")
 	static FSlateBotOperationResult SendDrag(UWidget* Widget, const FSlateBotSendDragOptions& Options);

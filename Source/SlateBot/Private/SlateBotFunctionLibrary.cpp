@@ -369,7 +369,7 @@ FSlateBotOperationResult USlateBotFunctionLibrary::SendDrag(
 	const FVector2D FromPoint = Geometry.GetAbsolutePosition() + Geometry.GetAbsoluteSize() * ClampFrom;
 	const FVector2D ToPoint   = Geometry.GetAbsolutePosition() + Geometry.GetAbsoluteSize() * ClampTo;
 
-	FModifierKeysState ModifierState = MakeModifierKeysState(Options.ModifierKeys);
+	const FModifierKeysState ModifierState = MakeModifierKeysState(Options.ModifierKeys);
 
 	TSharedPtr<FGenericWindow> NativeWindow;
 	if (const TSharedPtr<SWindow> FoundWindow = FSlateApplication::Get().FindWidgetWindow(SlateWidget.ToSharedRef()))
@@ -378,6 +378,10 @@ FSlateBotOperationResult USlateBotFunctionLibrary::SendDrag(
 		NativeWindow = FoundWindow->GetNativeWindow();
 	}
 
+	// Position the cursor before the press (reset hover, then move to the drag
+	// origin) synchronously. The down → move* → up sequence is then driven
+	// frame-by-frame by a ticker so the game thread is never blocked by a long
+	// synchronous sleep (ISSUE-007).
 	const TSet<FKey> NoButtons;
 	FPointerEvent OffScreenMove(FInputDeviceId::CreateFromInternalId(0), 0,
 		FVector2D(-1, -1), FVector2D(-1, -1), NoButtons, FKey(), 0.f, ModifierState);
@@ -387,28 +391,85 @@ FSlateBotOperationResult USlateBotFunctionLibrary::SendDrag(
 		FromPoint, FromPoint, NoButtons, FKey(), 0.f, ModifierState);
 	FSlateApplication::Get().ProcessMouseMoveEvent(MoveToFrom);
 
-	const int32 Steps = FMath::Max(1, Options.Steps);
-	const float StepMs = FMath::Max(1.0f, Options.DurationMs) / Steps;
-	const TSet<FKey> PressedButtons{ Options.Button };
+	// Bound the drag so a runaway request can't stall the frame loop too long.
+	const int32 Steps = FMath::Clamp(Options.Steps, 1, 200);
+	const float StepMs = FMath::Max(1.0f, FMath::Clamp(Options.DurationMs, 1.f, 10000.f)) / Steps;
+	const double Interval = FMath::Max(0.001, static_cast<double>(StepMs) * 0.001);
 
-	FPointerEvent DownEvent(FInputDeviceId::CreateFromInternalId(0), 0,
-		FromPoint, FromPoint, PressedButtons, Options.Button, 0.f, ModifierState);
-	FSlateApplication::Get().ProcessMouseButtonDownEvent(NativeWindow, DownEvent);
-
-	for (int32 i = 1; i <= Steps; ++i)
+	// Shared state carried by the ticker lambda from frame to frame.
+	struct FDragState
 	{
-		const float Alpha = static_cast<float>(i) / Steps;
-		const FVector2D InterpPoint = FMath::Lerp(FromPoint, ToPoint, Alpha);
-		FPointerEvent MoveEvent(FInputDeviceId::CreateFromInternalId(0), 0,
-			InterpPoint, InterpPoint, PressedButtons, Options.Button, 0.f, ModifierState);
-		FSlateApplication::Get().ProcessMouseMoveEvent(MoveEvent);
-		FPlatformProcess::Sleep(StepMs * 0.001f);
-	}
+		TWeakPtr<SWidget> WeakWidget;
+		TSharedPtr<FGenericWindow> NativeWindow;
+		FModifierKeysState ModifierState;
+		FKey Button;
+		FVector2D FromPoint;
+		FVector2D ToPoint;
+		int32 Steps = 0;
+		int32 CurrentStep = 0; // 0 = down, 1..Steps = moves, Steps+1 = up
+		bool bDone = false;
+	};
 
-	FPointerEvent UpEvent(FInputDeviceId::CreateFromInternalId(0), 0,
-		ToPoint, ToPoint, NoButtons, Options.Button, 0.f, ModifierState);
-	FSlateApplication::Get().ProcessMouseButtonUpEvent(UpEvent);
+	const TSharedPtr<FDragState> State = MakeShared<FDragState>();
+	State->WeakWidget      = SlateWidget;
+	State->NativeWindow    = NativeWindow;
+	State->ModifierState   = ModifierState;
+	State->Button          = Options.Button;
+	State->FromPoint       = FromPoint;
+	State->ToPoint         = ToPoint;
+	State->Steps           = Steps;
 
+	FTSTicker::GetCoreTicker().AddTicker(
+		FTickerDelegate::CreateLambda(
+			[State](float) -> bool
+			{
+				if (State->bDone)
+				{
+					return false;
+				}
+
+				// Abort if the source widget disappeared mid-drag.
+				if (!State->WeakWidget.Pin().IsValid())
+				{
+					State->bDone = true;
+					return false;
+				}
+
+				const TSet<FKey> PressedButtons{ State->Button };
+				const TSet<FKey> NoButtons;
+
+				if (State->CurrentStep == 0)
+				{
+					FPointerEvent DownEvent(FInputDeviceId::CreateFromInternalId(0), 0,
+						State->FromPoint, State->FromPoint, PressedButtons, State->Button, 0.f, State->ModifierState);
+					FSlateApplication::Get().ProcessMouseButtonDownEvent(State->NativeWindow, DownEvent);
+					State->CurrentStep = 1;
+					return true;
+				}
+
+				if (State->CurrentStep <= State->Steps)
+				{
+					const float Alpha = static_cast<float>(State->CurrentStep) / State->Steps;
+					const FVector2D InterpPoint = FMath::Lerp(State->FromPoint, State->ToPoint, Alpha);
+					FPointerEvent MoveEvent(FInputDeviceId::CreateFromInternalId(0), 0,
+						InterpPoint, InterpPoint, PressedButtons, State->Button, 0.f, State->ModifierState);
+					FSlateApplication::Get().ProcessMouseMoveEvent(MoveEvent);
+					++State->CurrentStep;
+					return true;
+				}
+
+				// Final: release at the target position.
+				FPointerEvent UpEvent(FInputDeviceId::CreateFromInternalId(0), 0,
+					State->ToPoint, State->ToPoint, NoButtons, State->Button, 0.f, State->ModifierState);
+				FSlateApplication::Get().ProcessMouseButtonUpEvent(UpEvent);
+				State->bDone = true;
+				return false;
+			}),
+		Interval);
+
+	// The drag is scheduled and runs asynchronously on the game thread. The
+	// caller should wait (e.g. via WaitForWidgetTreeDiff) or sleep before
+	// reading the resulting state.
 	Result.bSuccess = true;
 	return Result;
 }
