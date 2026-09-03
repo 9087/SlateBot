@@ -31,6 +31,8 @@ TMap<FName, USlateBotFunctionLibrary::FWidgetTreeSnapshot> USlateBotFunctionLibr
 TArray<FSlateBotInstanceInfo> USlateBotFunctionLibrary::GetSlateBotInstances()
 {
 	TArray<FSlateBotInstanceInfo> Result;
+	// Return an empty array if not on the game thread. This is safe: the caller
+	// simply sees no instances, rather than being told a mutation succeeded.
 	if (!IsInGameThread())
 	{
 		return Result;
@@ -75,7 +77,8 @@ FSlateBotOperationResult USlateBotFunctionLibrary::SendClick(UWidget* Widget, co
 	FSlateBotOperationResult Result;
 	if (!IsInGameThread())
 	{
-		return Result;
+		return Result.Failure(TEXT("NotOnGameThread"),
+			TEXT("This function must be called on the game thread."));
 	}
 
 	if (!Widget)
@@ -146,7 +149,8 @@ FSlateBotOperationResult USlateBotFunctionLibrary::SendKey(const FKey& Key, cons
 	FSlateBotOperationResult Result;
 	if (!IsInGameThread())
 	{
-		return Result;
+		return Result.Failure(TEXT("NotOnGameThread"),
+			TEXT("This function must be called on the game thread."));
 	}
 
 	const FModifierKeysState ModifierState(
@@ -175,7 +179,8 @@ FSlateBotOperationResult USlateBotFunctionLibrary::SendText(const FString& Text)
 	FSlateBotOperationResult Result;
 	if (!IsInGameThread())
 	{
-		return Result;
+		return Result.Failure(TEXT("NotOnGameThread"),
+			TEXT("This function must be called on the game thread."));
 	}
 
 	for (const TCHAR Char : Text)
@@ -195,7 +200,8 @@ FSlateBotOperationResult USlateBotFunctionLibrary::SendMouseMove(
 	FSlateBotOperationResult Result;
 	if (!IsInGameThread())
 	{
-		return Result;
+		return Result.Failure(TEXT("NotOnGameThread"),
+			TEXT("This function must be called on the game thread."));
 	}
 
 	if (!Widget)
@@ -246,7 +252,8 @@ FSlateBotOperationResult USlateBotFunctionLibrary::SendMouseWheel(UWidget* Widge
 	FSlateBotOperationResult Result;
 	if (!IsInGameThread())
 	{
-		return Result;
+		return Result.Failure(TEXT("NotOnGameThread"),
+			TEXT("This function must be called on the game thread."));
 	}
 
 	if (!Widget)
@@ -285,7 +292,8 @@ FSlateBotOperationResult USlateBotFunctionLibrary::SendDrag(
 	FSlateBotOperationResult Result;
 	if (!IsInGameThread())
 	{
-		return Result;
+		return Result.Failure(TEXT("NotOnGameThread"),
+			TEXT("This function must be called on the game thread."));
 	}
 
 	if (!Widget)
@@ -637,7 +645,8 @@ FSlateBotOperationResult USlateBotFunctionLibrary::CloseSlateBotWindow(FName Ins
 	FSlateBotOperationResult Result;
 	if (!IsInGameThread())
 	{
-		return Result;
+		return Result.Failure(TEXT("NotOnGameThread"),
+			TEXT("This function must be called on the game thread."));
 	}
 
 	const FSlateBotInstanceRegistry& Registry = FSlateBotInstanceRegistry::Get();
