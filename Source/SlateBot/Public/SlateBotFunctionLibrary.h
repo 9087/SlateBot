@@ -88,6 +88,15 @@ enum class ESlateBotClickType : uint8
 	Double,
 };
 
+/**
+ * Modifier key state for input simulation.
+ *
+ * The four `bControl`/`bAlt`/`bShift`/`bCommand` fields are the agnostic
+ * "is this key held" switches and are fully backward compatible.
+ * The `bLeft*`/`bRight*` fields are optional *overrides* that let scripts
+ * distinguish the left vs right modifier (e.g. right-Control only). When all
+ * of the new fields are false (the default), behavior is identical to before.
+ */
 USTRUCT(BlueprintType)
 struct SLATEBOT_API FSlateBotModifierKeys
 {
@@ -97,13 +106,37 @@ struct SLATEBOT_API FSlateBotModifierKeys
 	bool bControl = false;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlateBot")
+	bool bLeftControl = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlateBot")
+	bool bRightControl = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlateBot")
 	bool bAlt = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlateBot")
+	bool bLeftAlt = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlateBot")
+	bool bRightAlt = false;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlateBot")
 	bool bShift = false;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlateBot")
+	bool bLeftShift = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlateBot")
+	bool bRightShift = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlateBot")
 	bool bCommand = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlateBot")
+	bool bLeftCommand = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlateBot")
+	bool bRightCommand = false;
 };
 
 USTRUCT(BlueprintType)
