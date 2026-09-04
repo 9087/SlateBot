@@ -43,25 +43,6 @@ public:
 	/** Replaces the child content widget. */
 	void SetContent(TSharedRef<SWidget> InContent);
 
-	// ---- WidgetId cache ---------------------------------------------------
-
-	/**
-	 * Generates a stable WidgetId for the given widget and registers it
-	 * in the per-instance lookup cache so later ResolveWidgetId() calls succeed.
-	 * Idempotent: calling twice on the same widget returns the same id.
-	 */
-	FString RegisterWidgetId(TSharedRef<SWidget> Widget);
-
-	/**
-	 * Resolves a WidgetId back to a live SWidget pointer.
-	 * Returns nullptr if the id is unknown or the widget has been destroyed.
-	 * Stale (expired) entries are cleaned up on detection.
-	 */
-	TSharedPtr<SWidget> ResolveWidgetId(const FString& WidgetId);
-
 private:
 	FName InstanceName;
-
-	/** WidgetId (pointer string) → weak reference to the SWidget. */
-	TMap<FString, TWeakPtr<SWidget>> WidgetCache;
 };

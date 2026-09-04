@@ -47,32 +47,3 @@ void SSlateBot::SetContent(TSharedRef<SWidget> InContent)
 		InContent
 	];
 }
-
-FString SSlateBot::RegisterWidgetId(TSharedRef<SWidget> Widget)
-{
-	SWidget* RawPtr = &Widget.Get();
-	const FString Id = FString::Printf(TEXT("0x%p"), RawPtr);
-
-	if (!WidgetCache.Contains(Id))
-	{
-		WidgetCache.Add(Id, TWeakPtr<SWidget>(Widget));
-	}
-	return Id;
-}
-
-TSharedPtr<SWidget> SSlateBot::ResolveWidgetId(const FString& WidgetId)
-{
-	TWeakPtr<SWidget>* Found = WidgetCache.Find(WidgetId);
-	if (!Found)
-	{
-		return nullptr;
-	}
-
-	TSharedPtr<SWidget> Pinned = Found->Pin();
-	if (!Pinned.IsValid())
-	{
-		// Clean up stale entry so it is never reused.
-		WidgetCache.Remove(WidgetId);
-	}
-	return Pinned;
-}
