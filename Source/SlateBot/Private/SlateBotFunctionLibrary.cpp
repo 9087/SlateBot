@@ -33,7 +33,7 @@ namespace
 	/**
 	 * Converts FSlateBotModifierKeys into a Slate FModifierKeysState.
 	 *
-	 * Backward compatible: when no bLeft*/bRight* override is set, the agnostic
+	 * Backward compatible: when no bLeft/bRight override is set, the agnostic
 	 * bControl/bAlt/bShift/bCommand map to BOTH any-down and left-down, exactly
 	 * as before. A right-only modifier (e.g. right-Control) is expressed by
 	 * setting the override while leaving the agnostic field false, yielding
