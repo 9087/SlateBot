@@ -482,16 +482,16 @@ public:
 	static FSlateBotOperationResult SendDrag(UWidget* Widget, const FSlateBotSendDragOptions& Options);
 
 	/**
-	 * Returns true if a mouse input is currently in progress (i.e. an
-	 * asynchronous SendDrag has been scheduled and has not finished yet).
+	 * Returns true if a mouse input is currently pending (i.e. an asynchronous
+	 * SendDrag has been scheduled and has not finished yet).
 	 *
 	 * While this returns true, any new mouse input (SendClick, SendMouseMove,
 	 * SendMouseWheel, SendDrag) will fail with ESlateBotErrorCode::InputInProgress.
-	 * Callers can poll this to wait for the in-progress input to finish before
+	 * Callers can poll this to wait for the pending input to finish before
 	 * sending the next one.
 	 */
 	UFUNCTION(BlueprintCallable, Category = "SlateBot")
-	static bool IsInputBusy();
+	static bool IsMouseInputPending();
 
 	// ── Widget‑tree diff API ──────────────────────────────────────────
 	//
@@ -622,7 +622,7 @@ private:
 	/**
 	 * Single-flight guard for synthetic mouse input. True while an asynchronous
 	 * SendDrag occupies the primary mouse pointer; while true other mouse inputs
-	 * are rejected with ESlateBotErrorCode::InputInProgress (see IsInputBusy).
+	 * are rejected with ESlateBotErrorCode::InputInProgress (see IsMouseInputPending).
 	 */
 	static bool bMouseDragInProgress;
 

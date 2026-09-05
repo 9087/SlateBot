@@ -99,7 +99,7 @@ TArray<FSlateBotInstanceInfo> USlateBotFunctionLibrary::GetSlateBotInstances()
 	return Result;
 }
 
-bool USlateBotFunctionLibrary::IsInputBusy()
+bool USlateBotFunctionLibrary::IsMouseInputPending()
 {
 	return bMouseDragInProgress;
 }
@@ -116,7 +116,7 @@ FSlateBotOperationResult USlateBotFunctionLibrary::SendClick(UWidget* Widget, co
 	if (bMouseDragInProgress)
 	{
 		return Result.Failure(ESlateBotErrorCode::InputInProgress,
-			TEXT("A mouse input is already in progress. Wait for it to finish (see IsInputBusy) before sending more."));
+			TEXT("A mouse input is already in progress. Wait for it to finish (see IsMouseInputPending) before sending more."));
 	}
 
 	if (!Widget)
@@ -269,7 +269,7 @@ FSlateBotOperationResult USlateBotFunctionLibrary::SendMouseMove(
 	if (bMouseDragInProgress)
 	{
 		return Result.Failure(ESlateBotErrorCode::InputInProgress,
-			TEXT("A mouse input is already in progress. Wait for it to finish (see IsInputBusy) before sending more."));
+			TEXT("A mouse input is already in progress. Wait for it to finish (see IsMouseInputPending) before sending more."));
 	}
 
 	if (!Widget)
@@ -323,7 +323,7 @@ FSlateBotOperationResult USlateBotFunctionLibrary::SendMouseWheel(UWidget* Widge
 	if (bMouseDragInProgress)
 	{
 		return Result.Failure(ESlateBotErrorCode::InputInProgress,
-			TEXT("A mouse input is already in progress. Wait for it to finish (see IsInputBusy) before sending more."));
+			TEXT("A mouse input is already in progress. Wait for it to finish (see IsMouseInputPending) before sending more."));
 	}
 
 	if (!Widget)
@@ -369,7 +369,7 @@ FSlateBotOperationResult USlateBotFunctionLibrary::SendDrag(
 	if (bMouseDragInProgress)
 	{
 		return Result.Failure(ESlateBotErrorCode::InputInProgress,
-			TEXT("A mouse input is already in progress. Wait for it to finish (see IsInputBusy) before sending more."));
+			TEXT("A mouse input is already in progress. Wait for it to finish (see IsMouseInputPending) before sending more."));
 	}
 
 	if (!Widget)
