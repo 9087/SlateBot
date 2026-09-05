@@ -50,6 +50,9 @@ enum class ESlateBotErrorCode : uint8
 	RenderFailed    UMETA(DisplayName = "RenderFailed"),
 	EncodeFailed    UMETA(DisplayName = "EncodeFailed"),
 	FileWriteFailed UMETA(DisplayName = "FileWriteFailed"),
+	// A mouse input is already in progress (e.g. an async SendDrag is running),
+	// so this new mouse input was rejected instead of colliding with it.
+	InputInProgress UMETA(DisplayName = "InputInProgress"),
 };
 
 USTRUCT(BlueprintType)
@@ -477,6 +480,18 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category = "SlateBot")
 	static FSlateBotOperationResult SendDrag(UWidget* Widget, const FSlateBotSendDragOptions& Options);
+
+	/**
+	 * Returns true if a mouse input is currently in progress (i.e. an
+	 * asynchronous SendDrag has been scheduled and has not finished yet).
+	 *
+	 * While this returns true, any new mouse input (SendClick, SendMouseMove,
+	 * SendMouseWheel, SendDrag) will fail with ESlateBotErrorCode::InputInProgress.
+	 * Callers can poll this to wait for the in-progress input to finish before
+	 * sending the next one.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "SlateBot")
+	static bool IsInputBusy();
 
 	// ── Widget‑tree diff API ──────────────────────────────────────────
 	//

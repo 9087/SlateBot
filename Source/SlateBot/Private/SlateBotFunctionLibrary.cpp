@@ -28,6 +28,12 @@
 
 TMap<FName, USlateBotFunctionLibrary::FWidgetTreeSnapshot> USlateBotFunctionLibrary::WidgetTreeSnapshots;
 
+// Single-flight guard for synthetic mouse input. An asynchronous SendDrag
+// occupies the primary mouse pointer over several frames, so while it runs any
+// further mouse input (click/move/wheel/drag) is rejected with
+// ESlateBotErrorCode::InputInProgress instead of colliding on the same pointer.
+static bool bMouseDragInProgress = false;
+
 FModifierKeysState FSlateBotModifierKeys::ToSlate() const
 {
 	// The engine FModifierKeysState stores each modifier's left/right state
@@ -93,6 +99,11 @@ TArray<FSlateBotInstanceInfo> USlateBotFunctionLibrary::GetSlateBotInstances()
 	return Result;
 }
 
+bool USlateBotFunctionLibrary::IsInputBusy()
+{
+	return bMouseDragInProgress;
+}
+
 FSlateBotOperationResult USlateBotFunctionLibrary::SendClick(UWidget* Widget, const FSlateBotSendClickOptions& Options)
 {
 	FSlateBotOperationResult Result;
@@ -100,6 +111,12 @@ FSlateBotOperationResult USlateBotFunctionLibrary::SendClick(UWidget* Widget, co
 	{
 		return Result.Failure(ESlateBotErrorCode::NotOnGameThread,
 			TEXT("This function must be called on the game thread."));
+	}
+
+	if (bMouseDragInProgress)
+	{
+		return Result.Failure(ESlateBotErrorCode::InputInProgress,
+			TEXT("A mouse input is already in progress. Wait for it to finish (see IsInputBusy) before sending more."));
 	}
 
 	if (!Widget)
@@ -249,6 +266,12 @@ FSlateBotOperationResult USlateBotFunctionLibrary::SendMouseMove(
 			TEXT("This function must be called on the game thread."));
 	}
 
+	if (bMouseDragInProgress)
+	{
+		return Result.Failure(ESlateBotErrorCode::InputInProgress,
+			TEXT("A mouse input is already in progress. Wait for it to finish (see IsInputBusy) before sending more."));
+	}
+
 	if (!Widget)
 	{
 		Result.Failure(ESlateBotErrorCode::InvalidArgument, TEXT("Widget must not be null."));
@@ -297,6 +320,12 @@ FSlateBotOperationResult USlateBotFunctionLibrary::SendMouseWheel(UWidget* Widge
 			TEXT("This function must be called on the game thread."));
 	}
 
+	if (bMouseDragInProgress)
+	{
+		return Result.Failure(ESlateBotErrorCode::InputInProgress,
+			TEXT("A mouse input is already in progress. Wait for it to finish (see IsInputBusy) before sending more."));
+	}
+
 	if (!Widget)
 	{
 		Result.Failure(ESlateBotErrorCode::InvalidArgument, TEXT("Widget must not be null."));
@@ -335,6 +364,12 @@ FSlateBotOperationResult USlateBotFunctionLibrary::SendDrag(
 	{
 		return Result.Failure(ESlateBotErrorCode::NotOnGameThread,
 			TEXT("This function must be called on the game thread."));
+	}
+
+	if (bMouseDragInProgress)
+	{
+		return Result.Failure(ESlateBotErrorCode::InputInProgress,
+			TEXT("A mouse input is already in progress. Wait for it to finish (see IsInputBusy) before sending more."));
 	}
 
 	if (!Widget)
@@ -409,12 +444,18 @@ FSlateBotOperationResult USlateBotFunctionLibrary::SendDrag(
 	State->ToPoint         = ToPoint;
 	State->Steps           = Steps;
 
+	// Mark a mouse input as in progress so other mouse inputs are rejected
+	// (InputInProgress) while the drag occupies the primary pointer across
+	// several frames.
+	bMouseDragInProgress = true;
+
 	FTSTicker::GetCoreTicker().AddTicker(
 		FTickerDelegate::CreateLambda(
 			[State](float) -> bool
 			{
 				if (State->bDone)
 				{
+					bMouseDragInProgress = false;
 					return false;
 				}
 
@@ -422,6 +463,7 @@ FSlateBotOperationResult USlateBotFunctionLibrary::SendDrag(
 				if (!State->WeakWidget.Pin().IsValid())
 				{
 					State->bDone = true;
+					bMouseDragInProgress = false;
 					return false;
 				}
 
@@ -453,6 +495,7 @@ FSlateBotOperationResult USlateBotFunctionLibrary::SendDrag(
 					State->ToPoint, State->ToPoint, NoButtons, State->Button, 0.f, State->ModifierState);
 				FSlateApplication::Get().ProcessMouseButtonUpEvent(UpEvent);
 				State->bDone = true;
+				bMouseDragInProgress = false;
 				return false;
 			}),
 		Interval);
