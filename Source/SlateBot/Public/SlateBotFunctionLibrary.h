@@ -25,6 +25,33 @@ struct SLATEBOT_API FSlateBotInstanceInfo
 	TObjectPtr<USlateBot> SlateBot = nullptr;
 };
 
+/**
+ * Error code reported by SlateBot operations.
+ *
+ * A type-safe replacement for the ad-hoc FName/string literals that were
+ * previously used. When serialized (e.g. via RemoteControl) a UENUM exports
+ * as its name string, so existing scripts that match on the textual code
+ * (e.g. "NotOnGameThread") continue to work.
+ */
+UENUM(BlueprintType)
+enum class ESlateBotErrorCode : uint8
+{
+	// DisplayName is set to the exact pre-enum string literal so that
+	// serialization (RemoteControl/etc.) keeps emitting e.g. "InstanceNotFound"
+	// rather than UE's auto-humanized "Instance Not Found", preserving
+	// backward compatibility for scripts that match on the textual code.
+	None            UMETA(DisplayName = "None"),
+	NotOnGameThread UMETA(DisplayName = "NotOnGameThread"),
+	InvalidArgument UMETA(DisplayName = "InvalidArgument"),
+	WidgetNotReady  UMETA(DisplayName = "WidgetNotReady"),
+	InstanceNotFound UMETA(DisplayName = "InstanceNotFound"),
+	WindowNotFound  UMETA(DisplayName = "WindowNotFound"),
+	RenderUnavailable UMETA(DisplayName = "RenderUnavailable"),
+	RenderFailed    UMETA(DisplayName = "RenderFailed"),
+	EncodeFailed    UMETA(DisplayName = "EncodeFailed"),
+	FileWriteFailed UMETA(DisplayName = "FileWriteFailed"),
+};
+
 USTRUCT(BlueprintType)
 struct SLATEBOT_API FSlateBotOperationResult
 {
@@ -34,12 +61,12 @@ struct SLATEBOT_API FSlateBotOperationResult
 	bool bSuccess = true;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlateBot")
-	FName ErrorCode;
+	ESlateBotErrorCode ErrorCode = ESlateBotErrorCode::None;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlateBot")
 	FString ErrorMessage;
 
-	FSlateBotOperationResult& Failure(const FName InErrorCode, const FString& InErrorMessage)
+	FSlateBotOperationResult& Failure(const ESlateBotErrorCode InErrorCode, const FString& InErrorMessage)
 	{
 		bSuccess = false;
 		ErrorCode = InErrorCode;
@@ -64,7 +91,7 @@ struct SLATEBOT_API FSlateBotCaptureScreenshotResult
 	bool bSuccess = true;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlateBot")
-	FName ErrorCode;
+	ESlateBotErrorCode ErrorCode = ESlateBotErrorCode::None;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlateBot")
 	FString ErrorMessage;
@@ -73,7 +100,7 @@ struct SLATEBOT_API FSlateBotCaptureScreenshotResult
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlateBot")
 	FString ScreenshotPath;
 
-	FSlateBotCaptureScreenshotResult& Failure(const FName InErrorCode, const FString& InErrorMessage)
+	FSlateBotCaptureScreenshotResult& Failure(const ESlateBotErrorCode InErrorCode, const FString& InErrorMessage)
 	{
 		bSuccess = false;
 		ErrorCode = InErrorCode;

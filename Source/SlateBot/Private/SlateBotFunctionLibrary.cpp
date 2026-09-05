@@ -98,20 +98,20 @@ FSlateBotOperationResult USlateBotFunctionLibrary::SendClick(UWidget* Widget, co
 	FSlateBotOperationResult Result;
 	if (!IsInGameThread())
 	{
-		return Result.Failure(TEXT("NotOnGameThread"),
+		return Result.Failure(ESlateBotErrorCode::NotOnGameThread,
 			TEXT("This function must be called on the game thread."));
 	}
 
 	if (!Widget)
 	{
-		Result.Failure(TEXT("InvalidArgument"), TEXT("Widget must not be null."));
+		Result.Failure(ESlateBotErrorCode::InvalidArgument, TEXT("Widget must not be null."));
 		return Result;
 	}
 	TSharedPtr<SWidget> SlateWidget = Widget->GetCachedWidget();
 	if (!SlateWidget.IsValid())
 	{
 		Result.Failure(
-			TEXT("WidgetNotReady"),
+			ESlateBotErrorCode::WidgetNotReady,
 			TEXT("Widget has no cached Slate widget. Ensure it is constructed and visible."));
 		return Result;
 	}
@@ -166,19 +166,19 @@ FSlateBotOperationResult USlateBotFunctionLibrary::Focus(UWidget* Widget)
 	FSlateBotOperationResult Result;
 	if (!IsInGameThread())
 	{
-		return Result.Failure(TEXT("NotOnGameThread"),
+		return Result.Failure(ESlateBotErrorCode::NotOnGameThread,
 			TEXT("This function must be called on the game thread."));
 	}
 
 	if (!Widget)
 	{
-		return Result.Failure(TEXT("InvalidArgument"), TEXT("Widget must not be null."));
+		return Result.Failure(ESlateBotErrorCode::InvalidArgument, TEXT("Widget must not be null."));
 	}
 	TSharedPtr<SWidget> SlateWidget = Widget->GetCachedWidget();
 	if (!SlateWidget.IsValid())
 	{
 		return Result.Failure(
-			TEXT("WidgetNotReady"),
+			ESlateBotErrorCode::WidgetNotReady,
 			TEXT("Widget has no cached Slate widget. Ensure it is constructed and visible."));
 	}
 
@@ -203,7 +203,7 @@ FSlateBotOperationResult USlateBotFunctionLibrary::SendKey(const FKey& Key, cons
 	FSlateBotOperationResult Result;
 	if (!IsInGameThread())
 	{
-		return Result.Failure(TEXT("NotOnGameThread"),
+		return Result.Failure(ESlateBotErrorCode::NotOnGameThread,
 			TEXT("This function must be called on the game thread."));
 	}
 
@@ -224,7 +224,7 @@ FSlateBotOperationResult USlateBotFunctionLibrary::SendText(const FString& Text)
 	FSlateBotOperationResult Result;
 	if (!IsInGameThread())
 	{
-		return Result.Failure(TEXT("NotOnGameThread"),
+		return Result.Failure(ESlateBotErrorCode::NotOnGameThread,
 			TEXT("This function must be called on the game thread."));
 	}
 
@@ -245,20 +245,20 @@ FSlateBotOperationResult USlateBotFunctionLibrary::SendMouseMove(
 	FSlateBotOperationResult Result;
 	if (!IsInGameThread())
 	{
-		return Result.Failure(TEXT("NotOnGameThread"),
+		return Result.Failure(ESlateBotErrorCode::NotOnGameThread,
 			TEXT("This function must be called on the game thread."));
 	}
 
 	if (!Widget)
 	{
-		Result.Failure(TEXT("InvalidArgument"), TEXT("Widget must not be null."));
+		Result.Failure(ESlateBotErrorCode::InvalidArgument, TEXT("Widget must not be null."));
 		return Result;
 	}
 	TSharedPtr<SWidget> SlateWidget = Widget->GetCachedWidget();
 	if (!SlateWidget.IsValid())
 	{
 		Result.Failure(
-			TEXT("WidgetNotReady"),
+			ESlateBotErrorCode::WidgetNotReady,
 			TEXT("Widget has no cached Slate widget. Ensure it is constructed and visible."));
 		return Result;
 	}
@@ -293,20 +293,20 @@ FSlateBotOperationResult USlateBotFunctionLibrary::SendMouseWheel(UWidget* Widge
 	FSlateBotOperationResult Result;
 	if (!IsInGameThread())
 	{
-		return Result.Failure(TEXT("NotOnGameThread"),
+		return Result.Failure(ESlateBotErrorCode::NotOnGameThread,
 			TEXT("This function must be called on the game thread."));
 	}
 
 	if (!Widget)
 	{
-		Result.Failure(TEXT("InvalidArgument"), TEXT("Widget must not be null."));
+		Result.Failure(ESlateBotErrorCode::InvalidArgument, TEXT("Widget must not be null."));
 		return Result;
 	}
 	TSharedPtr<SWidget> SlateWidget = Widget->GetCachedWidget();
 	if (!SlateWidget.IsValid())
 	{
 		Result.Failure(
-			TEXT("WidgetNotReady"),
+			ESlateBotErrorCode::WidgetNotReady,
 			TEXT("Widget has no cached Slate widget. Ensure it is constructed and visible."));
 		return Result;
 	}
@@ -333,20 +333,20 @@ FSlateBotOperationResult USlateBotFunctionLibrary::SendDrag(
 	FSlateBotOperationResult Result;
 	if (!IsInGameThread())
 	{
-		return Result.Failure(TEXT("NotOnGameThread"),
+		return Result.Failure(ESlateBotErrorCode::NotOnGameThread,
 			TEXT("This function must be called on the game thread."));
 	}
 
 	if (!Widget)
 	{
-		Result.Failure(TEXT("InvalidArgument"), TEXT("Widget must not be null."));
+		Result.Failure(ESlateBotErrorCode::InvalidArgument, TEXT("Widget must not be null."));
 		return Result;
 	}
 	TSharedPtr<SWidget> SlateWidget = Widget->GetCachedWidget();
 	if (!SlateWidget.IsValid())
 	{
 		Result.Failure(
-			TEXT("WidgetNotReady"),
+			ESlateBotErrorCode::WidgetNotReady,
 			TEXT("Widget has no cached Slate widget. Ensure it is constructed and visible."));
 		return Result;
 	}
@@ -758,7 +758,7 @@ FSlateBotOperationResult USlateBotFunctionLibrary::CloseSlateBotWindow(FName Ins
 	FSlateBotOperationResult Result;
 	if (!IsInGameThread())
 	{
-		return Result.Failure(TEXT("NotOnGameThread"),
+		return Result.Failure(ESlateBotErrorCode::NotOnGameThread,
 			TEXT("This function must be called on the game thread."));
 	}
 
@@ -766,14 +766,14 @@ FSlateBotOperationResult USlateBotFunctionLibrary::CloseSlateBotWindow(FName Ins
 	const TSharedPtr<SSlateBot> Instance = Registry.Find(InstanceName);
 	if (!Instance.IsValid())
 	{
-		return Result.Failure(TEXT("InstanceNotFound"),
+		return Result.Failure(ESlateBotErrorCode::InstanceNotFound,
 			FString::Printf(TEXT("No SlateBot instance named '%s'."), *InstanceName.ToString()));
 	}
 
 	TSharedPtr<SWindow> Window = FSlateApplication::Get().FindWidgetWindow(Instance.ToSharedRef());
 	if (!Window.IsValid())
 	{
-		return Result.Failure(TEXT("WindowNotFound"),
+		return Result.Failure(ESlateBotErrorCode::WindowNotFound,
 			TEXT("The SlateBot instance is not hosted in a top-level window."));
 	}
 
@@ -789,7 +789,7 @@ FSlateBotCaptureScreenshotResult USlateBotFunctionLibrary::CaptureSlateBotScreen
 	FSlateBotCaptureScreenshotResult Result;
 	if (!IsInGameThread())
 	{
-		return Result.Failure(TEXT("NotOnGameThread"),
+		return Result.Failure(ESlateBotErrorCode::NotOnGameThread,
 			TEXT("CaptureSlateBotScreenshot must be called on the game thread."));
 	}
 
@@ -797,13 +797,13 @@ FSlateBotCaptureScreenshotResult USlateBotFunctionLibrary::CaptureSlateBotScreen
 	const TSharedPtr<SSlateBot> Instance = Registry.Find(InstanceName);
 	if (!Instance.IsValid())
 	{
-		return Result.Failure(TEXT("InstanceNotFound"),
+		return Result.Failure(ESlateBotErrorCode::InstanceNotFound,
 			FString::Printf(TEXT("No SlateBot instance named '%s'."), *InstanceName.ToString()));
 	}
 
 	if (!FApp::CanEverRender())
 	{
-		return Result.Failure(TEXT("RenderUnavailable"),
+		return Result.Failure(ESlateBotErrorCode::RenderUnavailable,
 			TEXT("Rendering is unavailable in this build (headless/server). Cannot capture a screenshot."));
 	}
 
@@ -838,7 +838,7 @@ FSlateBotCaptureScreenshotResult USlateBotFunctionLibrary::CaptureSlateBotScreen
 	UTextureRenderTarget2D* RenderTarget = WidgetRenderer->DrawWidget(SlateWidget, DrawSize);
 	if (!RenderTarget)
 	{
-		return Result.Failure(TEXT("RenderFailed"),
+		return Result.Failure(ESlateBotErrorCode::RenderFailed,
 			TEXT("The widget renderer failed to create a render target."));
 	}
 
@@ -862,7 +862,7 @@ FSlateBotCaptureScreenshotResult USlateBotFunctionLibrary::CaptureSlateBotScreen
 	FBufferArchive Buffer;
 	if (!FImageUtils::ExportRenderTarget2DAsPNG(RenderTarget, Buffer))
 	{
-		return Result.Failure(TEXT("EncodeFailed"),
+		return Result.Failure(ESlateBotErrorCode::EncodeFailed,
 			TEXT("Failed to encode the rendered widget as PNG."));
 	}
 
@@ -873,7 +873,7 @@ FSlateBotCaptureScreenshotResult USlateBotFunctionLibrary::CaptureSlateBotScreen
 	}
 	else
 	{
-		return Result.Failure(TEXT("FileWriteFailed"),
+		return Result.Failure(ESlateBotErrorCode::FileWriteFailed,
 			FString::Printf(TEXT("Failed to create file: '%s'."), *FullPath));
 	}
 
