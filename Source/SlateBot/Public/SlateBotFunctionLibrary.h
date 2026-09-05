@@ -619,6 +619,13 @@ private:
 
 	static TMap<FName, FWidgetTreeSnapshot> WidgetTreeSnapshots;
 
+	/**
+	 * Single-flight guard for synthetic mouse input. True while an asynchronous
+	 * SendDrag occupies the primary mouse pointer; while true other mouse inputs
+	 * are rejected with ESlateBotErrorCode::InputInProgress (see IsInputBusy).
+	 */
+	static bool bMouseDragInProgress;
+
 	/** Reads all readable UPROPERTY values from a widget into a map. */
 	static void ReadWidgetProperties(UWidget* Widget, TMap<FString, FWidgetPropertyValue>& OutProperties);
 

@@ -32,7 +32,7 @@ TMap<FName, USlateBotFunctionLibrary::FWidgetTreeSnapshot> USlateBotFunctionLibr
 // occupies the primary mouse pointer over several frames, so while it runs any
 // further mouse input (click/move/wheel/drag) is rejected with
 // ESlateBotErrorCode::InputInProgress instead of colliding on the same pointer.
-static bool bMouseDragInProgress = false;
+bool USlateBotFunctionLibrary::bMouseDragInProgress = false;
 
 FModifierKeysState FSlateBotModifierKeys::ToSlate() const
 {
