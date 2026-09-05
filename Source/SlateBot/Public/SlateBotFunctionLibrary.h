@@ -354,7 +354,7 @@ public:
 	 * the front. Subsequent SendKey / SendText calls will be routed to this
 	 * widget instead of whatever had focus before.
 	 *
-	 * This unblocks multi-field form automation: call FocusWidget once per
+	 * This unblocks multi-field form automation: call Focus once per
 	 * field, then SendText to type into it. (SendClick alone does not
 	 * guarantee the click target gains keyboard focus.)
 	 *
@@ -363,14 +363,14 @@ public:
 	 * WebRemoteControl call payload structure:
 	 * {
 	 *   "ObjectPath": "/Script/SlateBot.Default__SlateBotFunctionLibrary",
-	 *   "FunctionName": "FocusWidget",
+	 *   "FunctionName": "Focus",
 	 *   "Parameters": {
 	 *     "Widget": "/Game/MyWidgetBlueprint.MyWidgetBlueprint_C:WidgetTree.EditBox_123",
 	 *   }
 	 * }
 	 */
 	UFUNCTION(BlueprintCallable, Category = "SlateBot")
-	static FSlateBotOperationResult FocusWidget(UWidget* Widget);
+	static FSlateBotOperationResult Focus(UWidget* Widget);
 
 	/**
 	 * Simulates a key press (down + up) on the currently focused widget.

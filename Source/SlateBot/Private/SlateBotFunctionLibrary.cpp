@@ -171,7 +171,7 @@ FSlateBotOperationResult USlateBotFunctionLibrary::SendClick(UWidget* Widget, co
 	return Result;
 }
 
-FSlateBotOperationResult USlateBotFunctionLibrary::FocusWidget(UWidget* Widget)
+FSlateBotOperationResult USlateBotFunctionLibrary::Focus(UWidget* Widget)
 {
 	FSlateBotOperationResult Result;
 	if (!IsInGameThread())
