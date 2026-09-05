@@ -11,6 +11,7 @@
 class USlateBot;
 class UWidget;
 class UWidgetTree;
+class FModifierKeysState;
 
 USTRUCT(BlueprintType)
 struct SLATEBOT_API FSlateBotInstanceInfo
@@ -137,6 +138,18 @@ struct SLATEBOT_API FSlateBotModifierKeys
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlateBot")
 	bool bRightCommand = false;
+
+	/**
+	 * Converts this Blueprint/RemoteControl-facing state into the Slate-internal
+	 * FModifierKeysState (which stores left/right separately and is not
+	 * reflectable). Mapping:
+	 *   left  = bLeftX  || (bX && !bRightX)
+	 *   right = bRightX || (bX && !bLeftX)
+	 * Legacy "agnostic" bX fields therefore mean "this modifier is down on
+	 * either side", matching the original behavior; the bLeftX/bRightX
+	 * overrides let scripts express a single side.
+	 */
+	FModifierKeysState ToSlate() const;
 };
 
 USTRUCT(BlueprintType)

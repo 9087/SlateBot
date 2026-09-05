@@ -28,35 +28,25 @@
 
 TMap<FName, USlateBotFunctionLibrary::FWidgetTreeSnapshot> USlateBotFunctionLibrary::WidgetTreeSnapshots;
 
-namespace
+FModifierKeysState FSlateBotModifierKeys::ToSlate() const
 {
-	/**
-	 * Converts FSlateBotModifierKeys into a Slate FModifierKeysState.
-	 *
-	 * Backward compatible: when no bLeft/bRight override is set, the agnostic
-	 * bControl/bAlt/bShift/bCommand map to BOTH any-down and left-down, exactly
-	 * as before. A right-only modifier (e.g. right-Control) is expressed by
-	 * setting the override while leaving the agnostic field false, yielding
-	 * any-down=true, left-down=false.
-	 */
-	FModifierKeysState MakeModifierKeysState(const FSlateBotModifierKeys& Mods)
-	{
-		const bool bCtrlAny  = Mods.bControl  || Mods.bLeftControl  || Mods.bRightControl;
-		const bool bCtrlLeft = Mods.bLeftControl || (Mods.bControl  && !Mods.bLeftControl  && !Mods.bRightControl);
-		const bool bAltAny   = Mods.bAlt      || Mods.bLeftAlt      || Mods.bRightAlt;
-		const bool bAltLeft  = Mods.bLeftAlt     || (Mods.bAlt      && !Mods.bLeftAlt      && !Mods.bRightAlt);
-		const bool bShiftAny = Mods.bShift    || Mods.bLeftShift    || Mods.bRightShift;
-		const bool bShiftLeft= Mods.bLeftShift   || (Mods.bShift    && !Mods.bLeftShift    && !Mods.bRightShift);
-		const bool bCmdAny   = Mods.bCommand  || Mods.bLeftCommand  || Mods.bRightCommand;
-		const bool bCmdLeft  = Mods.bLeftCommand || (Mods.bCommand  && !Mods.bLeftCommand  && !Mods.bRightCommand);
+	// The engine FModifierKeysState stores each modifier's left/right state
+	// separately (no "any" slot). We derive left/right so that a legacy agnostic
+	// bX field means "this modifier is down on either side" (both left+right set),
+	// while the bLeftX/bRightX overrides express a single side.
+	auto Left  = [](bool Any, bool L, bool R) { return L || (Any && !R); };
+	auto Right = [](bool Any, bool L, bool R) { return R || (Any && !L); };
 
-		return FModifierKeysState(
-			bShiftAny, bShiftLeft,
-			bCtrlAny,  bCtrlLeft,
-			bAltAny,   bAltLeft,
-			bCmdAny,   bCmdLeft,
-			false);
-	}
+	return FModifierKeysState(
+		Left (bShift,   bLeftShift,   bRightShift),
+		Right(bShift,   bLeftShift,   bRightShift),
+		Left (bControl, bLeftControl, bRightControl),
+		Right(bControl, bLeftControl, bRightControl),
+		Left (bAlt,     bLeftAlt,     bRightAlt),
+		Right(bAlt,     bLeftAlt,     bRightAlt),
+		Left (bCommand, bLeftCommand, bRightCommand),
+		Right(bCommand, bLeftCommand, bRightCommand),
+		false);
 }
 
 TArray<FSlateBotInstanceInfo> USlateBotFunctionLibrary::GetSlateBotInstances()
@@ -131,7 +121,7 @@ FSlateBotOperationResult USlateBotFunctionLibrary::SendClick(UWidget* Widget, co
 	                        FMath::Clamp(Options.RelativePosition.Y, 0.f, 1.f));
 	const FVector2D ClickPoint = Geometry.GetAbsolutePosition() + Geometry.GetAbsoluteSize() * Clamped;
 
-	FModifierKeysState ModifierState = MakeModifierKeysState(Options.ModifierKeys);
+	FModifierKeysState ModifierState = Options.ModifierKeys.ToSlate();
 
 	TSharedPtr<FGenericWindow> NativeWindow;
 	if (const TSharedPtr<SWindow> FoundWindow = FSlateApplication::Get().FindWidgetWindow(SlateWidget.ToSharedRef()))
@@ -217,7 +207,7 @@ FSlateBotOperationResult USlateBotFunctionLibrary::SendKey(const FKey& Key, cons
 			TEXT("This function must be called on the game thread."));
 	}
 
-	const FModifierKeysState ModifierState = MakeModifierKeysState(Modifiers);
+	const FModifierKeysState ModifierState = Modifiers.ToSlate();
 
 	FKeyEvent KeyDownEvent(Key, ModifierState, 0, false, 0, 0);
 	FKeyEvent KeyUpEvent(Key, ModifierState, 0, false, 0, 0);
@@ -278,7 +268,7 @@ FSlateBotOperationResult USlateBotFunctionLibrary::SendMouseMove(
 	                        FMath::Clamp(RelativePosition.Y, 0.f, 1.f));
 	const FVector2D ClickPoint = Geometry.GetAbsolutePosition() + Geometry.GetAbsoluteSize() * Clamped;
 
-	FModifierKeysState ModifierState = MakeModifierKeysState(ModifierKeys);
+	FModifierKeysState ModifierState = ModifierKeys.ToSlate();
 
 	if (const TSharedPtr<SWindow> FoundWindow = FSlateApplication::Get().FindWidgetWindow(SlateWidget.ToSharedRef()))
 	{
@@ -369,7 +359,7 @@ FSlateBotOperationResult USlateBotFunctionLibrary::SendDrag(
 	const FVector2D FromPoint = Geometry.GetAbsolutePosition() + Geometry.GetAbsoluteSize() * ClampFrom;
 	const FVector2D ToPoint   = Geometry.GetAbsolutePosition() + Geometry.GetAbsoluteSize() * ClampTo;
 
-	const FModifierKeysState ModifierState = MakeModifierKeysState(Options.ModifierKeys);
+	const FModifierKeysState ModifierState = Options.ModifierKeys.ToSlate();
 
 	TSharedPtr<FGenericWindow> NativeWindow;
 	if (const TSharedPtr<SWindow> FoundWindow = FSlateApplication::Get().FindWidgetWindow(SlateWidget.ToSharedRef()))
