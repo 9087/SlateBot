@@ -148,10 +148,10 @@ FSlateBotOperationResult USlateBotFunctionLibrary::SendClick(UWidget* Widget, co
 	}
 
 	const TSet<FKey> NoButtons;
-	FPointerEvent OffScreenMove(FInputDeviceId::CreateFromInternalId(0), 0,
-		FVector2D(-1, -1), FVector2D(-1, -1), NoButtons, FKey(), 0.f, ModifierState);
-	FSlateApplication::Get().ProcessMouseMoveEvent(OffScreenMove);
-
+	// Position the cursor directly at the click point. We deliberately avoid any
+	// off-screen (-1,-1) detour: moving the synthetic cursor far outside the
+	// window repeatedly degrades Slate's hover/pointer state, and after enough
+	// synthetic inputs clicks start "not landing" even though bSuccess is true.
 	FPointerEvent MoveEvent(FInputDeviceId::CreateFromInternalId(0), 0,
 		ClickPoint, ClickPoint, NoButtons, FKey(), 0.f, ModifierState);
 	FSlateApplication::Get().ProcessMouseMoveEvent(MoveEvent);
@@ -299,10 +299,6 @@ FSlateBotOperationResult USlateBotFunctionLibrary::SendMouseMove(
 	}
 
 	const TSet<FKey> NoButtons;
-	FPointerEvent OffScreenMove(FInputDeviceId::CreateFromInternalId(0), 0,
-		FVector2D(-1, -1), FVector2D(-1, -1), NoButtons, FKey(), 0.f, ModifierState);
-	FSlateApplication::Get().ProcessMouseMoveEvent(OffScreenMove);
-
 	FPointerEvent MoveEvent(FInputDeviceId::CreateFromInternalId(0), 0,
 		ClickPoint, ClickPoint, NoButtons, FKey(), 0.f, ModifierState);
 	FSlateApplication::Get().ProcessMouseMoveEvent(MoveEvent);
@@ -403,15 +399,11 @@ FSlateBotOperationResult USlateBotFunctionLibrary::SendDrag(
 		NativeWindow = FoundWindow->GetNativeWindow();
 	}
 
-	// Position the cursor before the press (reset hover, then move to the drag
-	// origin) synchronously. The down → move* → up sequence is then driven
-	// frame-by-frame by a ticker so the game thread is never blocked by a long
-	// synchronous sleep (ISSUE-007).
+	// Position the cursor at the drag origin synchronously. The down → move* → up
+	// sequence is then driven frame-by-frame by a ticker so the game thread is
+	// never blocked by a long synchronous sleep (ISSUE-007). No off-screen
+	// (-1,-1) detour: that degrades Slate's pointer state over repeated inputs.
 	const TSet<FKey> NoButtons;
-	FPointerEvent OffScreenMove(FInputDeviceId::CreateFromInternalId(0), 0,
-		FVector2D(-1, -1), FVector2D(-1, -1), NoButtons, FKey(), 0.f, ModifierState);
-	FSlateApplication::Get().ProcessMouseMoveEvent(OffScreenMove);
-
 	FPointerEvent MoveToFrom(FInputDeviceId::CreateFromInternalId(0), 0,
 		FromPoint, FromPoint, NoButtons, FKey(), 0.f, ModifierState);
 	FSlateApplication::Get().ProcessMouseMoveEvent(MoveToFrom);
