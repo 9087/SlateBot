@@ -92,6 +92,30 @@ tree2=rpc("GetWidgetTreeDiff", InstanceName=inst)     # ④ verify
 
 ---
 
+## Troubleshooting (when a call reports success but the UI didn't change)
+
+| # | Check | How |
+|---|-------|-----|
+| 1 | Is the target ready? | Read a known-stable state and wait until it matches |
+| 2 | **Is the target still actionable?** | Read `Visibility`/`bIsEnabled`, or check screenshot (already revealed / greyed). Skip finished/disabled/hidden targets |
+| 3 | Does the target have a handler? | Check `GetWidgetTreeDiff` node `Delegates` (`bHasBindings: true`) |
+| 4 | Deferred update? | Wait 1–2 s and re-read; some apps update on tick |
+| 5 | Reading the right property? | Prefer `Text`; for colors, calibrate then range-match (below) |
+| 6 | Is the target window active? | Minimized/behind window won't route mouse input; `BringToFront` may not suffice — reload the window |
+
+> If still nothing after all checks, report target-path, before/after values, and delegate/bind state.
+
+## Visual (color) state reading
+
+- Actual RGB can be shifted by Slate visual multipliers (pressed/hovered, often ×1.05–1.20).
+- Calibrate a baseline on a **known state**, then classify with a **per-channel ±0.10 range** rather than exact values.
+
+## Batch-observation performance
+
+- Prefer `GetWidgetTreeDiff` (1 call = full tree, then incremental diffs) over many per-widget/per-property calls.
+
+---
+
 ## Common human behaviors (do the same)
 
 | Situation | What a person does |
