@@ -866,11 +866,22 @@ FSlateBotCaptureScreenshotResult USlateBotFunctionLibrary::CaptureSlateBotScreen
 		DrawSize.Y = FMath::Clamp(DrawSize.Y, 64.f, 4096.f);
 	}
 
-	// Render the widget into a fresh off-screen render target and flush the
-	// draw synchronously (bDeferRenderTargetUpdate = false) so we can read the
-	// pixels back in the same call.
-	TSharedRef<FWidgetRenderer> WidgetRenderer = MakeShared<FWidgetRenderer>(true, true);
-	UTextureRenderTarget2D* RenderTarget = WidgetRenderer->DrawWidget(SlateWidget, DrawSize);
+	// Render the widget into a fresh off-screen render target and flush the draw
+	// synchronously (bDeferRenderTargetUpdate = false) so we can read the pixels
+	// back in the same call.
+	//
+	// Gamma (avoid double-encoding): FWidgetRenderer's first bool drives BOTH the
+	// Slate renderer's gamma correction AND CreateTargetFor's sRGB tag, but with
+	// opposite polarity (target SRGB = !bUseGammaCorrection). Using it as-is either
+	// encodes gamma twice (renderer + PNG export -> too bright) or not at all
+	// (-> too dark). Decouple them here: render LINEAR (renderer gamma off) into a
+	// LINEAR-tagged target, and let the PNG export apply exactly one sRGB encode.
+	TSharedRef<FWidgetRenderer> WidgetRenderer = MakeShared<FWidgetRenderer>(/*bUseGammaCorrection=*/false, /*bInClearTarget=*/true);
+	UTextureRenderTarget2D* RenderTarget = FWidgetRenderer::CreateTargetFor(DrawSize, TF_Bilinear, /*bUseGammaCorrection=*/true);
+	if (RenderTarget)
+	{
+		WidgetRenderer->DrawWidget(RenderTarget, SlateWidget, DrawSize, 0.f, /*bDeferRenderTargetUpdate=*/false);
+	}
 	if (!RenderTarget)
 	{
 		return Result.Failure(ESlateBotErrorCode::RenderFailed,
