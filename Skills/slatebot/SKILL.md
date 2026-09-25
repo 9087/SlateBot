@@ -71,7 +71,7 @@ Body: `{"objectPath":"/Script/SlateBot.Default__SlateBotFunctionLibrary","functi
 Result in `ReturnValue` (`FSlateBotOperationResult`: `bSuccess`/`ErrorCode`/`ErrorMessage`).
 
 **Key functions**: `GetSlateBotInstances`, `GetWidgetTreeDiff`, `ResetWidgetTreeCache`,
-`WaitForWidgetTreeDiff`, `SendClick`, `SendKey`, `SendText`, `Focus`, `SendDrag` (async),
+`SendClick`, `SendKey`, `SendText`, `Focus`, `SendDrag` (async),
 `CaptureSlateBotScreenshot`, `IsMouseInputPending`.
 
 **Widget paths**: use UMG object path; the prefix up to `.WidgetTree_0` is **transient** —

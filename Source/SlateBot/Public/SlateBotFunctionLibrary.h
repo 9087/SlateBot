@@ -454,44 +454,6 @@ struct SLATEBOT_API FSlateBotTreeNodeInfo
 	TArray<FSlateBotDelegateInfo> Delegates;
 };
 
-/** A single property change detected by WaitForWidgetTreeDiff. */
-USTRUCT(BlueprintType)
-struct SLATEBOT_API FSlateBotWidgetTreeChange
-{
-	GENERATED_BODY()
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlateBot")
-	FString WidgetPath;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlateBot")
-	FString PropertyName;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlateBot")
-	FString OldValue;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlateBot")
-	FString NewValue;
-};
-
-/** Result returned by WaitForWidgetTreeDiff. */
-USTRUCT(BlueprintType)
-struct SLATEBOT_API FSlateBotWidgetTreeDiffResult
-{
-	GENERATED_BODY()
-
-	/** True if the wait timed out before any changes were detected. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlateBot")
-	bool bTimedOut = false;
-
-	/** Milliseconds spent waiting before returning. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlateBot")
-	int32 TimeWaitedMs = 0;
-
-	/** Properties that changed (empty if timed out). */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlateBot")
-	TArray<FSlateBotWidgetTreeChange> Changes;
-};
-
 UCLASS()
 class SLATEBOT_API USlateBotFunctionLibrary : public UBlueprintFunctionLibrary
 {
@@ -615,8 +577,8 @@ public:
 	 * The gesture is driven frame-by-frame on the game thread via a ticker,
 	 * so it never blocks the frame loop with a synchronous sleep. This call
 	 * returns immediately once the drag has been *scheduled* (bSuccess = true
-	 * means scheduled, not completed). To observe the drag's effect, wait via
-	 * WaitForWidgetTreeDiff (or sleep) before reading state.
+	 * means scheduled, not completed). To observe the drag's effect, poll
+	 * IsMouseInputPending and re-read the widget tree until it settles.
 	 */
 	UFUNCTION(BlueprintCallable, Category = "SlateBot")
 	static FSlateBotOperationResult SendDrag(UWidget* Widget, const FSlateBotSendDragOptions& Options);
@@ -735,28 +697,6 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category = "SlateBot|Diff")
 	static void ResetWidgetTreeCache(FName InstanceName);
-
-	/**
-	 * Blocks the calling thread until any widget property change is detected
-	 * via GetWidgetTreeDiff, or until the timeout expires.
-	 *
-	 * Designed for RemoteControl (HTTP worker thread) usage.  The caller MUST
-	 * establish a baseline snapshot before the UI operation whose side-effects
-	 * it wants to observe:
-	 *
-	 *   1. ResetWidgetTreeCache("Minesweeper")
-	 *   2. GetWidgetTreeDiff("Minesweeper")   // baseline snapshot
-	 *   3. SendClick("...Cell_0_0")            // UI operation
-	 *   4. WaitForWidgetTreeDiff("Minesweeper", 2000)  // wait for changes
-	 *
-	 * @param InstanceName   The SlateBot instance name.
-	 * @param TimeoutMs      Maximum time to wait in ms (0 = wait forever).
-	 * @param PollIntervalMs Interval between diff checks in ms (default 16 ≈ 60fps).
-	 * @return Diff result with changes and timing info.
-	 */
-	UFUNCTION(BlueprintCallable, Category = "SlateBot|Diff")
-	static FSlateBotWidgetTreeDiffResult WaitForWidgetTreeDiff(
-		FName InstanceName, int32 TimeoutMs = 2000, int32 PollIntervalMs = 16);
 
 	/**
 	 * Closes the window hosting the named SlateBot instance.

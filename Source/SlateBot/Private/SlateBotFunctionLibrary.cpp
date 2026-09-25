@@ -639,8 +639,8 @@ FSlateBotOperationResult USlateBotFunctionLibrary::SendDrag(
 		Interval);
 
 	// The drag is scheduled and runs asynchronously on the game thread. The
-	// caller should wait (e.g. via WaitForWidgetTreeDiff) or sleep before
-	// reading the resulting state.
+	// caller should poll IsMouseInputPending and re-read the widget tree until
+	// it settles before relying on the resulting state.
 	Result.bSuccess = true;
 	return Result;
 }
@@ -842,96 +842,6 @@ void USlateBotFunctionLibrary::ResetWidgetTreeCache(FName InstanceName)
 void USlateBotFunctionLibrary::CleanupInstanceSnapshot(FName InstanceName)
 {
 	WidgetTreeSnapshots.Remove(InstanceName);
-}
-
-FSlateBotWidgetTreeDiffResult USlateBotFunctionLibrary::WaitForWidgetTreeDiff(
-	FName InstanceName, int32 TimeoutMs, int32 PollIntervalMs)
-{
-	FSlateBotWidgetTreeDiffResult Result;
-
-	// Poll GetWidgetTreeDiff on the game thread until it returns non-empty
-	// (i.e. the cache has a baseline and changes are detected), or timeout.
-	// The caller is responsible for establishing the baseline before the
-	// UI operation whose side-effects it wants to observe:
-	//   1. ResetWidgetTreeCache("Minesweeper")
-	//   2. GetWidgetTreeDiff("Minesweeper")   // baseline snapshot
-	//   3. SendClick(...)                      // operation
-	//   4. WaitForWidgetTreeDiff("Minesweeper") // wait for changes
-
-	FEvent* CompletionEvent = FPlatformProcess::GetSynchEventFromPool();
-	TSharedPtr<TArray<FSlateBotWidgetTreeChange>> SharedChanges =
-		MakeShared<TArray<FSlateBotWidgetTreeChange>>();
-	TSharedPtr<bool> SharedGotChanges = MakeShared<bool>(false);
-	TSharedPtr<int32> SharedElapsedMs = MakeShared<int32>(0);
-	TSharedPtr<FTSTicker::FDelegateHandle> TickerHandle =
-		MakeShared<FTSTicker::FDelegateHandle>();
-
-	const double StartTime = FPlatformTime::Seconds();
-	const float PollIntervalSec = FMath::Max(0.001f, static_cast<float>(PollIntervalMs) * 0.001f);
-
-	FFunctionGraphTask::CreateAndDispatchWhenReady(
-		[InstanceName, CompletionEvent, SharedChanges, SharedGotChanges,
-		 SharedElapsedMs, TickerHandle, PollIntervalSec, StartTime]()
-		{
-			*TickerHandle = FTSTicker::GetCoreTicker().AddTicker(
-				FTickerDelegate::CreateLambda(
-					[InstanceName, CompletionEvent, SharedChanges, SharedGotChanges,
-					 SharedElapsedMs, StartTime](float DeltaTime) -> bool
-					{
-						TArray<FSlateBotTreeNodeInfo> Diff =
-							USlateBotFunctionLibrary::GetWidgetTreeDiff(InstanceName);
-						if (Diff.Num() > 0)
-						{
-							for (const FSlateBotTreeNodeInfo& Node : Diff)
-							{
-								for (const FSlateBotPropertyInfo& Prop : Node.Properties)
-								{
-									FSlateBotWidgetTreeChange Change;
-									Change.WidgetPath = Prop.WidgetPath;
-									Change.PropertyName = Prop.PropertyName;
-									Change.OldValue = Prop.OldValue;
-									Change.NewValue = Prop.NewValue;
-									SharedChanges->Add(Change);
-								}
-							}
-							*SharedGotChanges = true;
-							*SharedElapsedMs = static_cast<int32>(
-								(FPlatformTime::Seconds() - StartTime) * 1000.0);
-							CompletionEvent->Trigger();
-							return false; // Remove ticker
-						}
-						return true; // Keep polling
-					}),
-				PollIntervalSec);
-		},
-		TStatId(), nullptr, ENamedThreads::GameThread);
-
-	const bool bTriggered = CompletionEvent->Wait(
-		TimeoutMs > 0 ? static_cast<uint32>(TimeoutMs) : MAX_uint32);
-
-	// Clean up the ticker on the game thread.
-	FEvent* CleanupEvent = FPlatformProcess::GetSynchEventFromPool();
-	FFunctionGraphTask::CreateAndDispatchWhenReady(
-		[TickerHandle, CleanupEvent]()
-		{
-			FTSTicker::GetCoreTicker().RemoveTicker(*TickerHandle);
-			CleanupEvent->Trigger();
-		},
-		TStatId(), nullptr, ENamedThreads::GameThread);
-	CleanupEvent->Wait();
-	FPlatformProcess::ReturnSynchEventToPool(CleanupEvent);
-
-	Result.bTimedOut = !bTriggered;
-	Result.TimeWaitedMs = bTriggered ? *SharedElapsedMs : TimeoutMs;
-	if (bTriggered)
-	{
-		Result.Changes = *SharedChanges;
-		// Re-baseline so a subsequent wait doesn't see the same changes again.
-		ResetWidgetTreeCache(InstanceName);
-	}
-
-	FPlatformProcess::ReturnSynchEventToPool(CompletionEvent);
-	return Result;
 }
 
 FSlateBotOperationResult USlateBotFunctionLibrary::CloseSlateBotWindow(FName InstanceName)
