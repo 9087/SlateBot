@@ -101,6 +101,7 @@
 | `GetWidgetTreeDiff` | 读控件树状态（首次全量，之后增量 diff） | `InstanceName` |
 | `ResetWidgetTreeCache` | 重置某实例 diff 缓存（下次=全量） | `InstanceName` |
 | `WaitForWidgetTreeDiff` | 阻塞等待状态变化（用于"等反馈"） | `InstanceName`,`TimeoutMs` |
+| `GetWidgetGeometry` | 读控件的绝对位置 / 尺寸 / 本地尺寸 / 缩放 | `Widget` |
 | `SendClick` | 模拟点击 | `Widget`、`Options` |
 | `SendKey` / `SendText` | 键盘 / 文本输入（发到当前焦点） | `Key` / `Text` |
 | `Focus` | 聚焦某控件（配合 SendText） | `Widget` |

@@ -225,6 +225,41 @@ struct SLATEBOT_API FSlateBotSendDragOptions
 };
 
 /**
+ * Where a widget sits on screen, as reported by GetWidgetGeometry.
+ *
+ * Position and size are absolute screen pixels (already multiplied by
+ * LayoutScale) - the same space a click point or a screenshot pixel lives in.
+ */
+USTRUCT(BlueprintType)
+struct SLATEBOT_API FSlateBotWidgetGeometry
+{
+	GENERATED_BODY()
+
+	/**
+	 * False when the widget has no live Slate widget yet (not constructed /
+	 * not laid out), so there is no geometry to report.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlateBot")
+	bool bSuccess = true;
+
+	/** Top-left corner in absolute (screen) space. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlateBot")
+	FVector2D AbsolutePosition = FVector2D::ZeroVector;
+
+	/** Size in absolute (screen) space, i.e. already multiplied by LayoutScale. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlateBot")
+	FVector2D AbsoluteSize = FVector2D::ZeroVector;
+
+	/** Size in the widget's own (unscaled) space. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlateBot")
+	FVector2D LocalSize = FVector2D::ZeroVector;
+
+	/** Accumulated layout (DPI) scale applied to this widget. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlateBot")
+	float LayoutScale = 1.0f;
+};
+
+/**
  * Describes a readable property on a widget (name, type, current value,
  * and optionally the previous value when diffing).
  */
@@ -492,6 +527,21 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category = "SlateBot")
 	static bool IsMouseInputPending();
+
+	// ── Geometry ──────────────────────────────────────────────
+
+	/**
+	 * Returns where a widget sits on screen.
+	 *
+	 * Position and size are absolute screen pixels (already multiplied by
+	 * LayoutScale) - the same space a click point or a screenshot pixel lives in.
+	 * bSuccess is false when the widget has no live Slate widget yet, in which
+	 * case the numbers are zero.
+	 *
+	 * @param Widget  The UMG widget to measure.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "SlateBot|Geometry")
+	static FSlateBotWidgetGeometry GetWidgetGeometry(UWidget* Widget);
 
 	// ── Widget‑tree diff API ──────────────────────────────────────────
 	//

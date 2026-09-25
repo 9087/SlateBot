@@ -104,6 +104,31 @@ bool USlateBotFunctionLibrary::IsMouseInputPending()
 	return bMouseDragInProgress;
 }
 
+FSlateBotWidgetGeometry USlateBotFunctionLibrary::GetWidgetGeometry(UWidget* Widget)
+{
+	FSlateBotWidgetGeometry Result;
+	if (!IsInGameThread() || !Widget)
+	{
+		Result.bSuccess = false;
+		return Result;
+	}
+
+	const TSharedPtr<SWidget> SlateWidget = Widget->GetCachedWidget();
+	if (!SlateWidget.IsValid())
+	{
+		// Never constructed / laid out: there is no geometry to report yet.
+		Result.bSuccess = false;
+		return Result;
+	}
+
+	const FGeometry& Geometry = SlateWidget->GetCachedGeometry();
+	Result.AbsolutePosition = Geometry.GetAbsolutePosition();
+	Result.AbsoluteSize = Geometry.GetAbsoluteSize();
+	Result.LocalSize = Geometry.GetLocalSize();
+	Result.LayoutScale = Geometry.GetAccumulatedLayoutTransform().GetScale();
+	return Result;
+}
+
 FSlateBotOperationResult USlateBotFunctionLibrary::SendClick(UWidget* Widget, const FSlateBotSendClickOptions& Options)
 {
 	FSlateBotOperationResult Result;
