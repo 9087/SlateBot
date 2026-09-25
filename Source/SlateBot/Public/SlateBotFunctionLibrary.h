@@ -11,6 +11,7 @@
 class USlateBot;
 class UWidget;
 class UWidgetTree;
+class UUserWidget;
 class FModifierKeysState;
 
 USTRUCT(BlueprintType)
@@ -257,6 +258,110 @@ struct SLATEBOT_API FSlateBotWidgetGeometry
 	/** Accumulated layout (DPI) scale applied to this widget. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlateBot")
 	float LayoutScale = 1.0f;
+};
+
+/**
+ * One item held by a UMG UListView: the data object stored in ListItems, not its
+ * row widget. A row only exists while the item is on screen - see
+ * FSlateBotListEntryInfo / GetListEntryInfo.
+ */
+USTRUCT(BlueprintType)
+struct SLATEBOT_API FSlateBotListItemInfo
+{
+	GENERATED_BODY()
+
+	/** Item index in the list. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlateBot")
+	int32 Index = 0;
+
+	/** The item object held in ListItems. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlateBot")
+	TObjectPtr<UObject> Item = nullptr;
+
+	/**
+	 * The item object's class. Redundant with Item->GetClass() in C++, but a
+	 * caller driving this over RemoteControl only receives Item as a path string,
+	 * so this is what carries the type.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlateBot")
+	TObjectPtr<UClass> ItemClass = nullptr;
+};
+
+/**
+ * The row widget of one list item, as reported by GetListEntryInfo.
+ *
+ * This is UE's "entry widget": a UUserWidget implementing IUserListEntry, of the
+ * class given by UListView::EntryWidgetClass. Only items that are on screen have
+ * one, and the list recycles them, so do not hold on to the pointer across
+ * scrolls.
+ */
+USTRUCT(BlueprintType)
+struct SLATEBOT_API FSlateBotListEntryInfo
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlateBot")
+	bool bSuccess = true;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlateBot")
+	ESlateBotErrorCode ErrorCode = ESlateBotErrorCode::None;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlateBot")
+	FString ErrorMessage;
+
+	/** Item index this row belongs to. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlateBot")
+	int32 Index = 0;
+
+	/** The item's row widget, or null when the item has no row yet. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlateBot")
+	TObjectPtr<UUserWidget> EntryWidget = nullptr;
+
+	/**
+	 * The row widget's actual class. Not necessarily UListView::EntryWidgetClass,
+	 * because a list may pick a class per item (OnGetEntryClassForItem).
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlateBot")
+	TObjectPtr<UClass> EntryWidgetClass = nullptr;
+
+	FSlateBotListEntryInfo& Failure(const ESlateBotErrorCode InErrorCode, const FString& InErrorMessage)
+	{
+		bSuccess = false;
+		ErrorCode = InErrorCode;
+		ErrorMessage = InErrorMessage;
+		return *this;
+	}
+};
+
+/** Result of GetListViewInfo. */
+USTRUCT(BlueprintType)
+struct SLATEBOT_API FSlateBotListViewInfo
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlateBot")
+	bool bSuccess = true;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlateBot")
+	ESlateBotErrorCode ErrorCode = ESlateBotErrorCode::None;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlateBot")
+	FString ErrorMessage;
+
+	/** Number of items in the list. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlateBot")
+	int32 ItemCount = 0;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlateBot")
+	TArray<FSlateBotListItemInfo> Items;
+
+	FSlateBotListViewInfo& Failure(const ESlateBotErrorCode InErrorCode, const FString& InErrorMessage)
+	{
+		bSuccess = false;
+		ErrorCode = InErrorCode;
+		ErrorMessage = InErrorMessage;
+		return *this;
+	}
 };
 
 /**
@@ -542,6 +647,60 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category = "SlateBot|Geometry")
 	static FSlateBotWidgetGeometry GetWidgetGeometry(UWidget* Widget);
+
+	// ── ListView (UMG UListView) ──────────────────────────────────────
+
+	/**
+	 * Introspects a UMG UListView: how many items it holds and what each item is.
+	 *
+	 * This reports items only (the data objects), not their row widgets: a
+	 * UListView virtualizes, so only the items on screen have a row. Use
+	 * GetListEntryInfo to get the row widget of one item.
+	 *
+	 * @param Widget      The UListView to introspect.
+	 * @param MaxItems  0 = describe every item; otherwise only the first N.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "SlateBot|ListView")
+	static FSlateBotListViewInfo GetListViewInfo(UWidget* Widget, int32 MaxItems = 0);
+
+	/**
+	 * Returns the row widget of one list item, as it is right now.
+	 *
+	 * Read-only: a UListView virtualizes, so an item that is off screen has no
+	 * row and this reports ESlateBotErrorCode::WidgetNotReady. Use
+	 * ScrollToListEntry to act on a row that is not on screen yet.
+	 *
+	 * @param Widget  The UListView.
+	 * @param Index   Item index (0-based).
+	 */
+	UFUNCTION(BlueprintCallable, Category = "SlateBot|ListView")
+	static FSlateBotListEntryInfo GetListEntryInfo(UWidget* Widget, int32 Index);
+
+	/**
+	 * Scrolls the list to one item and returns its row.
+	 *
+	 * If the item has no row yet (it is virtualized out of view) this puts the
+	 * requested line at the top of the viewport and drives the list's tick on the
+	 * spot - a RemoteControl call occupies the game thread, so the engine would
+	 * not tick by itself - then re-reads the row. An item whose row is already
+	 * there is left where it is.
+	 *
+	 * @param Widget  The UListView.
+	 * @param Index   Item index (0-based).
+	 */
+	UFUNCTION(BlueprintCallable, Category = "SlateBot|ListView")
+	static FSlateBotListEntryInfo ScrollToListEntry(UWidget* Widget, int32 Index);
+
+	/**
+	 * Scrolls the list to one item, then clicks its row.
+	 *
+	 * @param Widget   The UListView.
+	 * @param Index    Item index (0-based).
+	 * @param Options  Which button, and where inside the row, to click.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "SlateBot|ListView")
+	static FSlateBotOperationResult ScrollToListEntryAndSendClick(
+		UWidget* Widget, int32 Index, const FSlateBotSendClickOptions& Options);
 
 	// ── Widget‑tree diff API ──────────────────────────────────────────
 	//

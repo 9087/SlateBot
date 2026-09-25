@@ -7,6 +7,7 @@
 #include "USlateBot.h"
 #include "Blueprint/UserWidget.h"
 #include "Blueprint/WidgetTree.h"
+#include "Components/ListView.h"
 #include "Components/PanelWidget.h"
 #include "Components/Widget.h"
 #include "Framework/Application/SlateApplication.h"
@@ -25,6 +26,7 @@
 #include "Misc/App.h"
 #include "HAL/FileManager.h"
 #include "Widgets/SWindow.h"
+#include "Widgets/Views/STableViewBase.h"
 
 TMap<FName, USlateBotFunctionLibrary::FWidgetTreeSnapshot> USlateBotFunctionLibrary::WidgetTreeSnapshots;
 
@@ -127,6 +129,125 @@ FSlateBotWidgetGeometry USlateBotFunctionLibrary::GetWidgetGeometry(UWidget* Wid
 	Result.LocalSize = Geometry.GetLocalSize();
 	Result.LayoutScale = Geometry.GetAccumulatedLayoutTransform().GetScale();
 	return Result;
+}
+
+FSlateBotListViewInfo USlateBotFunctionLibrary::GetListViewInfo(UWidget* Widget, int32 MaxItems)
+{
+	FSlateBotListViewInfo Result;
+	if (!IsInGameThread())
+	{
+		return Result.Failure(ESlateBotErrorCode::NotOnGameThread,
+			TEXT("This function must be called on the game thread."));
+	}
+
+	UListView* ListView = Cast<UListView>(Widget);
+	if (!ListView)
+	{
+		return Result.Failure(ESlateBotErrorCode::InvalidArgument,
+			TEXT("Widget is not a UListView; ListView introspection requires UMG's UListView."));
+	}
+
+	Result.ItemCount = ListView->GetNumItems();
+	const int32 Limit = (MaxItems > 0) ? FMath::Min(MaxItems, Result.ItemCount) : Result.ItemCount;
+
+	for (int32 Index = 0; Index < Limit; ++Index)
+	{
+		UObject* Item = ListView->GetItemAt(Index);
+
+		FSlateBotListItemInfo ItemInfo;
+		ItemInfo.Index = Index;
+		ItemInfo.Item = Item;
+		ItemInfo.ItemClass = Item ? Item->GetClass() : nullptr;
+		Result.Items.Add(MoveTemp(ItemInfo));
+	}
+	return Result;
+}
+
+FSlateBotListEntryInfo USlateBotFunctionLibrary::GetListEntryInfo(UWidget* Widget, int32 Index)
+{
+	FSlateBotListEntryInfo Result;
+	Result.Index = Index;
+
+	if (!IsInGameThread())
+	{
+		return Result.Failure(ESlateBotErrorCode::NotOnGameThread,
+			TEXT("This function must be called on the game thread."));
+	}
+
+	UListView* ListView = Cast<UListView>(Widget);
+	if (!ListView)
+	{
+		return Result.Failure(ESlateBotErrorCode::InvalidArgument,
+			TEXT("Widget is not a UListView; ListView introspection requires UMG's UListView."));
+	}
+
+	const int32 ItemCount = ListView->GetNumItems();
+	if (Index < 0 || Index >= ItemCount)
+	{
+		return Result.Failure(ESlateBotErrorCode::InvalidArgument,
+			FString::Printf(TEXT("Index %d is out of range (item count %d)."), Index, ItemCount));
+	}
+
+	UObject* Item = ListView->GetItemAt(Index);
+	UUserWidget* EntryWidget = Item ? ListView->GetEntryWidgetFromItem(Item) : nullptr;
+	if (!EntryWidget)
+	{
+		// Read-only: report what is there now. A virtualized item simply has no
+		// row yet; bringing it on screen is an action (see ScrollToListEntry).
+		return Result.Failure(ESlateBotErrorCode::WidgetNotReady,
+			FString::Printf(TEXT("Item %d has no row widget (it is virtualized out of view)."), Index));
+	}
+
+	Result.EntryWidget = EntryWidget;
+	Result.EntryWidgetClass = EntryWidget->GetClass();
+	return Result;
+}
+
+FSlateBotListEntryInfo USlateBotFunctionLibrary::ScrollToListEntry(UWidget* Widget, int32 Index)
+{
+	FSlateBotListEntryInfo Entry = GetListEntryInfo(Widget, Index);
+
+	if (!Entry.bSuccess && Entry.ErrorCode == ESlateBotErrorCode::WidgetNotReady)
+	{
+		// The item exists but has no row: put the requested line at the top of the
+		// viewport and drive the list's tick on the spot. Scroll offsets are counted
+		// in lines, and Tick corrects an offset that runs past the end. An RC call
+		// occupies the game thread, so the engine would not tick on its own.
+		if (UListView* ListView = Cast<UListView>(Widget))
+		{
+			if (TSharedPtr<STableViewBase> TableView = StaticCastSharedPtr<STableViewBase>(ListView->GetCachedWidget()))
+			{
+				TableView->SetScrollOffset(Index);
+
+				// A step of at least 1/12s makes FInterpTo (speed 12.0) reach the target
+				// within this one tick, whether or not the list animates scrolling.
+				TableView->Tick(
+					TableView->GetTickSpaceGeometry(),
+					FSlateApplication::Get().GetCurrentTime(),
+					1.0f);
+			}
+		}
+
+		Entry = GetListEntryInfo(Widget, Index);
+	}
+
+	return Entry;
+}
+
+FSlateBotOperationResult USlateBotFunctionLibrary::ScrollToListEntryAndSendClick(
+	UWidget* Widget, int32 Index, const FSlateBotSendClickOptions& Options)
+{
+	const FSlateBotListEntryInfo Entry = ScrollToListEntry(Widget, Index);
+
+	FSlateBotOperationResult Result;
+	if (!Entry.bSuccess || !Entry.EntryWidget)
+	{
+		return Result.Failure(
+			Entry.ErrorCode != ESlateBotErrorCode::None ? Entry.ErrorCode : ESlateBotErrorCode::WidgetNotReady,
+			Entry.ErrorMessage);
+	}
+
+	return SendClick(Entry.EntryWidget, Options);
 }
 
 FSlateBotOperationResult USlateBotFunctionLibrary::SendClick(UWidget* Widget, const FSlateBotSendClickOptions& Options)

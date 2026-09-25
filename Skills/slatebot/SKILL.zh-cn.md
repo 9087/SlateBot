@@ -102,6 +102,10 @@
 | `ResetWidgetTreeCache` | 重置某实例 diff 缓存（下次=全量） | `InstanceName` |
 | `WaitForWidgetTreeDiff` | 阻塞等待状态变化（用于"等反馈"） | `InstanceName`,`TimeoutMs` |
 | `GetWidgetGeometry` | 读控件的绝对位置 / 尺寸 / 本地尺寸 / 缩放 | `Widget` |
+| `GetListViewInfo` | 读 ListView 的 item 列表（总数 / 每项 item 对象与其 UClass） | `Widget` |
+| `GetListEntryInfo` | 取某 item 的**行控件**（**只读**：该项虚拟化在外时返回 `WidgetNotReady`） | `Widget`、`Index` |
+| `ScrollToListEntry` | 滚到某 item 并返回它的**行控件**（没行时当场滚动 + 驱动 tick 造出来；已在视野里则不动） | `Widget`、`Index` |
+| `ScrollToListEntryAndSendClick` | `ScrollToListEntry` 之后再 `SendClick` 该行 | `Widget`、`Index`、`Options` |
 | `SendClick` | 模拟点击 | `Widget`、`Options` |
 | `SendKey` / `SendText` | 键盘 / 文本输入（发到当前焦点） | `Key` / `Text` |
 | `Focus` | 聚焦某控件（配合 SendText） | `Widget` |
