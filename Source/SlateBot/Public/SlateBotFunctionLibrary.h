@@ -373,10 +373,6 @@ struct SLATEBOT_API FSlateBotPropertyInfo
 {
 	GENERATED_BODY()
 
-	/** Object path of the widget owning this property. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlateBot")
-	FString WidgetPath;
-
 	/** Name of the property. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlateBot")
 	FString PropertyName;
@@ -412,13 +408,39 @@ struct SLATEBOT_API FSlateBotDelegateInfo
 };
 
 /**
+ * What happened to a node since the previous GetWidgetTreeDiff call. Applying
+ * this delta lets a consumer keep a local model of the tree.
+ *
+ *   Add    - the node did not exist in the previous read
+ *   Change - the node existed and at least one readable property differs
+ *   Delete - the node existed and is gone now; only the ROOT of a removed
+ *            subtree is reported, since its descendants went with it
+ *   None   - the node is unchanged and present only to keep the tree structure
+ *            (its property array is empty)
+ *
+ * The first call after a reset has no previous read, so it reports the whole
+ * tree as Add.
+ */
+UENUM(BlueprintType)
+enum class ESlateBotNodeChangeType : uint8
+{
+	None   UMETA(DisplayName = "None"),
+	Add    UMETA(DisplayName = "Add"),
+	Change UMETA(DisplayName = "Change"),
+	Delete UMETA(DisplayName = "Delete"),
+};
+
+/**
  * A node in the widget tree diff returned by GetWidgetTreeDiff.
  *
  * On the first call the full tree is returned with every node's readable
- * properties (OldValue empty, NewValue = current).  On subsequent calls
- * only changed nodes (and their ancestors, to preserve the tree structure
- * from the root) are included; each changed node carries only the
- * properties that differ from the cache.
+ * properties (OldValue empty, NewValue = current), each reported as Add.  On
+ * subsequent calls only touched nodes (and their ancestors, to preserve the
+ * tree structure from the root) are included; each changed node carries only
+ * the properties that differ from the cache.  See ESlateBotNodeChangeType.
+ *
+ * The diff compares the current tree against the previous read, so a node that
+ * appears and disappears between two calls is not reported at all.
  */
 USTRUCT(BlueprintType)
 struct SLATEBOT_API FSlateBotTreeNodeInfo
@@ -433,15 +455,19 @@ struct SLATEBOT_API FSlateBotTreeNodeInfo
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlateBot")
 	FString ParentPath;
 
-	/** UClass path of the widget (e.g. "/Script/UMG.Border"). */
+	/** UClass path of the widget (e.g. "/Script/UMG.Border"). Empty for Delete nodes. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlateBot")
 	FString WidgetClass;
+
+	/** What happened to this node since the previous call. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlateBot")
+	ESlateBotNodeChangeType ChangeType = ESlateBotNodeChangeType::None;
 
 	/**
 	 * Changed properties for this node.
 	 * First call -- all readable properties (OldValue empty).
 	 * Subsequent -- only changed properties (OldValue populated).
-	 * Unchanged ancestors included for tree structure have an empty array.
+	 * None (ancestor) and Delete nodes have an empty array.
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlateBot")
 	TArray<FSlateBotPropertyInfo> Properties;
@@ -670,20 +696,23 @@ public:
 	// and their readable property values.  Calling GetWidgetTreeDiff reads
 	// the current tree, diffs it against the cache, and updates the cache.
 	//
-	//   GetWidgetTreeDiff -- returns the changed portion of the widget
-	//                        tree.  First call returns the full tree with
-	//                        all properties.  Subsequent calls return only
-	//                        changed nodes + ancestors, with property diffs.
+	//   GetWidgetTreeDiff -- returns the touched portion of the widget tree,
+	//                        each node tagged with an ESlateBotNodeChangeType.
+	//                        First call returns the full tree (all Add).
+	//                        Subsequent calls return only touched nodes plus
+	//                        the ancestors that keep the tree structure.
 	//                        Cache is updated automatically.
 
 	/**
 	 * Returns the changed portion of the widget tree.
 	 *
-	 * First call: full tree with all readable properties.
-	 * Subsequent calls: only changed nodes + ancestor chain.
+	 * First call: the full tree with all readable properties, every node marked
+	 * Add.  Subsequent calls: only touched nodes plus the ancestors that keep the
+	 * tree structure; each node carries an ESlateBotNodeChangeType
+	 * (Add/Change/Delete) and only the properties that differ.
 	 *
 	 * @param InstanceName  The SlateBot instance name.
-	 * @return Changed tree nodes (full tree on first call).
+	 * @return Touched tree nodes (full tree on first call).
 	 */
 	UFUNCTION(BlueprintCallable, Category = "SlateBot|Diff")
 	static TArray<FSlateBotTreeNodeInfo> GetWidgetTreeDiff(FName InstanceName);
@@ -764,6 +793,14 @@ private:
 	{
 		TSet<FString> Paths;
 		TMap<FString, TMap<FString, FWidgetPropertyValue>> Properties; // Path -> PropName -> (Type, Value)
+
+		// Key   = a widget's full UMG object path (UWidget::GetPathName()).
+		// Value = that widget's parent widget's full object path; empty for the
+		//         root widget.
+		// Kept so a node that disappears can still report where it used to hang,
+		// and so the root of a removed subtree can be told apart from the
+		// descendants that went with it.
+		TMap<FString, FString> Parents;
 	};
 
 	static TMap<FName, FWidgetTreeSnapshot> WidgetTreeSnapshots;

@@ -725,15 +725,16 @@ TArray<FSlateBotTreeNodeInfo> USlateBotFunctionLibrary::GetWidgetTreeDiff(FName 
 
 		const FString Path = Widget->GetPathName();
 		Current.Paths.Add(Path);
+		Current.Parents.Add(Path, ParentPath);
 
-		TMap<FString, FWidgetPropertyValue> CurProperties;
-		ReadWidgetProperties(Widget, CurProperties);
-		if (!CurProperties.IsEmpty())
+		TMap<FString, FWidgetPropertyValue> CurrentProperties;
+		ReadWidgetProperties(Widget, CurrentProperties);
+		if (!CurrentProperties.IsEmpty())
 		{
-			Current.Properties.Add(Path, CurProperties);
+			Current.Properties.Add(Path, CurrentProperties);
 		}
 
-		const TMap<FString, FWidgetPropertyValue>* CachedProps = Cache.Properties.Find(Path);
+		const TMap<FString, FWidgetPropertyValue>* CachedProperties = Cache.Properties.Find(Path);
 		const bool bIsNew = !Cache.Paths.Contains(Path);
 
 		FSlateBotTreeNodeInfo Node;
@@ -743,30 +744,29 @@ TArray<FSlateBotTreeNodeInfo> USlateBotFunctionLibrary::GetWidgetTreeDiff(FName 
 
 		if (bIsFirstCall || bIsNew)
 		{
+			Node.ChangeType = ESlateBotNodeChangeType::Add;
 			ReadWidgetDelegates(Widget, Node.Delegates);
-			for (const auto& Pair : CurProperties)
+			for (const auto& Pair : CurrentProperties)
 			{
 				FSlateBotPropertyInfo Change;
-				Change.WidgetPath = Path;
 				Change.PropertyName = Pair.Key;
 				Change.PropertyType = Pair.Value.Type;
 				Change.NewValue = Pair.Value.Value;
 				Node.Properties.Add(MoveTemp(Change));
 			}
 		}
-		else if (CachedProps)
+		else if (CachedProperties)
 		{
-			for (const auto& Pair : CurProperties)
+			for (const auto& Pair : CurrentProperties)
 			{
 				const FString& Name = Pair.Key;
 				const FString& NewValue = Pair.Value.Value;
 				const FString& Type = Pair.Value.Type;
-				if (const FWidgetPropertyValue* OldProp = CachedProps->Find(Name))
+				if (const FWidgetPropertyValue* OldProp = CachedProperties->Find(Name))
 				{
 					if (!NewValue.Equals(OldProp->Value))
 					{
 						FSlateBotPropertyInfo Change;
-						Change.WidgetPath = Path;
 						Change.PropertyName = Name;
 						Change.PropertyType = Type;
 						Change.OldValue = OldProp->Value;
@@ -774,6 +774,11 @@ TArray<FSlateBotTreeNodeInfo> USlateBotFunctionLibrary::GetWidgetTreeDiff(FName 
 						Node.Properties.Add(MoveTemp(Change));
 					}
 				}
+			}
+
+			if (Node.Properties.Num() > 0)
+			{
+				Node.ChangeType = ESlateBotNodeChangeType::Change;
 			}
 		}
 
@@ -799,8 +804,39 @@ TArray<FSlateBotTreeNodeInfo> USlateBotFunctionLibrary::GetWidgetTreeDiff(FName 
 
 	CollectAndDiff(WidgetTree->RootWidget, FString());
 
-	// On subsequent calls, prune unchanged nodes (keep only nodes with
-	// changes or nodes that are ancestors of changed nodes).
+	// Deletions: paths the previous read had and this one does not. Only the root
+	// of each removed subtree is reported - its descendants went with it, and a
+	// caller drops them from its own model by path prefix. There is nothing to
+	// delete on the first call, which has no previous read.
+	if (!bIsFirstCall)
+	{
+		TSet<FString> Deleted;
+		for (const FString& CachedPath : Cache.Paths)
+		{
+			if (!Current.Paths.Contains(CachedPath))
+			{
+				Deleted.Add(CachedPath);
+			}
+		}
+
+		for (const FString& DeletedPath : Deleted)
+		{
+			const FString* CachedParent = Cache.Parents.Find(DeletedPath);
+			if (CachedParent && Deleted.Contains(*CachedParent))
+			{
+				continue; // part of a removed subtree, not its root
+			}
+
+			FSlateBotTreeNodeInfo Node;
+			Node.WidgetPath = DeletedPath;
+			Node.ParentPath = CachedParent ? *CachedParent : FString();
+			Node.ChangeType = ESlateBotNodeChangeType::Delete;
+			Result.Add(MoveTemp(Node));
+		}
+	}
+
+	// On subsequent calls, prune untouched nodes (keep only touched nodes and the
+	// ancestors that preserve the tree structure from the root).
 	if (!bIsFirstCall)
 	{
 		TMap<FString, int32> PathToIndex;
@@ -812,7 +848,7 @@ TArray<FSlateBotTreeNodeInfo> USlateBotFunctionLibrary::GetWidgetTreeDiff(FName 
 		TSet<FString> KeepPaths;
 		for (const FSlateBotTreeNodeInfo& Node : Result)
 		{
-			if (Node.Properties.Num() > 0)
+			if (Node.ChangeType != ESlateBotNodeChangeType::None)
 			{
 				FString P = Node.WidgetPath;
 				while (!P.IsEmpty())

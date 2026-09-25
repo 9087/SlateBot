@@ -98,7 +98,7 @@
 | 函数 | 用途 | 关键参数 |
 |------|------|---------|
 | `GetSlateBotInstances` | 发现运行中的 SlateBot 实例 | 无 |
-| `GetWidgetTreeDiff` | 读控件树状态（首次全量，之后增量 diff） | `InstanceName` |
+| `GetWidgetTreeDiff` | 读控件树（首次全量，节点全为 Add；之后增量，节点带 Add/Change/Delete/None 标记） | `InstanceName` |
 | `ResetWidgetTreeCache` | 重置某实例 diff 缓存（下次=全量） | `InstanceName` |
 | `GetWidgetGeometry` | 读控件的绝对位置 / 尺寸 / 本地尺寸 / 缩放 | `Widget` |
 | `GetListViewInfo` | 读 ListView 的 item 列表（总数 / 每项 item 对象与其 UClass） | `Widget` |
