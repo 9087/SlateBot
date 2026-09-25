@@ -28,7 +28,7 @@
 #include "Widgets/SWindow.h"
 #include "Widgets/Views/STableViewBase.h"
 
-TMap<FName, USlateBotFunctionLibrary::FWidgetTreeSnapshot> USlateBotFunctionLibrary::WidgetTreeSnapshots;
+TMap<FName, USlateBotFunctionLibrary::FInstanceInfo> USlateBotFunctionLibrary::InstanceInfos;
 
 // Single-flight guard for synthetic mouse input. An asynchronous SendDrag
 // occupies the primary mouse pointer over several frames, so while it runs any
@@ -709,7 +709,7 @@ TArray<FSlateBotTreeNodeInfo> USlateBotFunctionLibrary::GetWidgetTreeDiff(FName 
 	}
 
 	// Only now may we create/read the cache entry for a confirmed-live instance.
-	FWidgetTreeSnapshot& Cache = WidgetTreeSnapshots.FindOrAdd(InstanceName);
+	FWidgetTreeSnapshot& Cache = InstanceInfos.FindOrAdd(InstanceName).Snapshot;
 	const bool bIsFirstCall = Cache.Paths.IsEmpty();
 
 	FWidgetTreeSnapshot Current;
@@ -872,12 +872,16 @@ TArray<FSlateBotTreeNodeInfo> USlateBotFunctionLibrary::GetWidgetTreeDiff(FName 
 
 void USlateBotFunctionLibrary::ResetWidgetTreeCache(FName InstanceName)
 {
-	WidgetTreeSnapshots.Remove(InstanceName);
+	// Drops the diff baseline, so the next GetWidgetTreeDiff is a full read again.
+	if (FInstanceInfo* Info = InstanceInfos.Find(InstanceName))
+	{
+		Info->Snapshot = FWidgetTreeSnapshot();
+	}
 }
 
-void USlateBotFunctionLibrary::CleanupInstanceSnapshot(FName InstanceName)
+void USlateBotFunctionLibrary::CleanupInstanceInfo(FName InstanceName)
 {
-	WidgetTreeSnapshots.Remove(InstanceName);
+	InstanceInfos.Remove(InstanceName);
 }
 
 FSlateBotOperationResult USlateBotFunctionLibrary::CloseSlateBotWindow(FName InstanceName)

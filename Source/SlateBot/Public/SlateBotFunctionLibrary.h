@@ -773,14 +773,16 @@ public:
 		int32 Height = 0);
 
 	/**
-	 * Removes the widget-tree diff snapshot for a given instance.
-	 * Called by FSlateBotInstanceRegistry::Unregister() so the snapshot is
-	 * cleaned up when an instance is destroyed (keeps the global cache from
+	 * Drops all per-instance bookkeeping (the widget-tree diff snapshot and any
+	 * in-flight wait) for a given instance.
+	 *
+	 * Called by FSlateBotInstanceRegistry::Unregister() so the state is cleaned up
+	 * when an instance is destroyed - this keeps the global table from
 	 * accumulating stale entries and from poisoning a same-name instance that
-	 * reopens later).
+	 * reopens later.
 	 */
 	UFUNCTION(BlueprintCallable, Category = "SlateBot|Diff")
-	static void CleanupInstanceSnapshot(FName InstanceName);
+	static void CleanupInstanceInfo(FName InstanceName);
 
 private:
 	struct FWidgetPropertyValue
@@ -803,7 +805,18 @@ private:
 		TMap<FString, FString> Parents;
 	};
 
-	static TMap<FName, FWidgetTreeSnapshot> WidgetTreeSnapshots;
+	/**
+	 * Per-instance bookkeeping kept by the library. Currently just the
+	 * widget-tree snapshot the diff is computed against; keeping it as a named
+	 * struct means per-instance state has a single home to inspect, reset and
+	 * clean up as more of it appears.
+	 */
+	struct FInstanceInfo
+	{
+		FWidgetTreeSnapshot Snapshot;
+	};
+
+	static TMap<FName, FInstanceInfo> InstanceInfos;
 
 	/**
 	 * Single-flight guard for synthetic mouse input. True while an asynchronous
