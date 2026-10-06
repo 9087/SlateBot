@@ -71,8 +71,8 @@ Body: `{"objectPath":"/Script/SlateBot.Default__SlateBotFunctionLibrary","functi
 Result in `ReturnValue` (`FSlateBotOperationResult`: `bSuccess`/`ErrorCode`/`ErrorMessage`).
 
 **Key functions**: `GetSlateBotInstances`, `GetWidgetTreeDiff`, `ResetWidgetTreeCache`,
-`SendClick`, `SendKey`, `SendText`, `Focus`, `SendDrag` (async),
-`CaptureSlateBotScreenshot`, `IsMouseInputPending`.
+`SendClick`, `SendMouseMove`, `SendMouseWheel`, `SendKey`, `SendText`, `Focus`,
+`SendDrag` (async), `CaptureSlateBotScreenshot`, `CloseSlateBotWindow`, `IsMouseInputPending`.
 
 **Widget paths**: use UMG object path; the prefix up to `.WidgetTree_0` is **transient** —
 get it dynamically. Composite widgets: `<outer>.WidgetTree_0.<child>`; base widgets direct.
@@ -89,6 +89,19 @@ rpc("SendClick", Widget=f"{prefix}.Cell_1_1", Options={"Button":{"KeyName":"Left
 tree2=rpc("GetWidgetTreeDiff", InstanceName=inst)     # ④ verify
 ```
 > Don't use `/remote/batch` (crashes the editor). Check `IsMouseInputPending` before concurrent input.
+
+---
+
+## Waiting and polling (there is no blocking wait)
+
+- RemoteControl calls run **on the game thread**: waiting inside the engine means nobody ticks, so
+  the UI can never change (an old `WaitForWidgetTreeDiff` died exactly that way and is gone).
+- Waiting on the **caller** side (your script / HTTP client) is safe — so "sleep, then re-read"
+  belongs in the script, not in a new engine-side wait function.
+- To "wait for feedback": keep a local model of the tree and fold in `GetWidgetTreeDiff`'s
+  `Add`/`Change`/`Delete` until two consecutive reads report no changes (settled).
+- Async actions are separate: `SendDrag` returning means **scheduled**; poll `IsMouseInputPending`
+  until it is false, then read the result.
 
 ---
 
