@@ -237,8 +237,9 @@ struct SLATEBOT_API FSlateBotWidgetGeometry
 	GENERATED_BODY()
 
 	/**
-	 * False when the widget has no live Slate widget yet (not constructed /
-	 * not laid out), so there is no geometry to report.
+	 * False when there is no geometry to report: the widget has no live Slate widget
+	 * yet, or has not been drawn (never painted, or collapsed). Every number is zero
+	 * in that case.
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlateBot")
 	bool bSuccess = true;
@@ -628,8 +629,9 @@ public:
 	 *
 	 * Position and size are absolute screen pixels (already multiplied by
 	 * LayoutScale) - the same space a click point or a screenshot pixel lives in.
-	 * bSuccess is false when the widget has no live Slate widget yet, in which
-	 * case the numbers are zero.
+	 * bSuccess is false when there is no geometry to report yet: the widget has no
+	 * live Slate widget, or has not been drawn (just created, or collapsed) - the
+	 * numbers are zero then.
 	 *
 	 * @param Widget  The UMG widget to measure.
 	 */

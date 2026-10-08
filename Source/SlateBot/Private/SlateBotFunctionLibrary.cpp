@@ -124,6 +124,15 @@ FSlateBotWidgetGeometry USlateBotFunctionLibrary::GetWidgetGeometry(UWidget* Wid
 	}
 
 	const FGeometry& Geometry = SlateWidget->GetCachedGeometry();
+	if (Geometry.GetAbsoluteSize().IsNearlyZero())
+	{
+		// SWidget::Paint is what writes a widget's geometry, so a widget that was never
+		// drawn (just created, or collapsed) has nothing to report. Same rule SendClick
+		// applies before aiming a click.
+		Result.bSuccess = false;
+		return Result;
+	}
+
 	Result.AbsolutePosition = Geometry.GetAbsolutePosition();
 	Result.AbsoluteSize = Geometry.GetAbsoluteSize();
 	Result.LocalSize = Geometry.GetLocalSize();
