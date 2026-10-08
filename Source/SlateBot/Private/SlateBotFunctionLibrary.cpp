@@ -237,9 +237,24 @@ FSlateBotListEntryInfo USlateBotFunctionLibrary::ScrollToListEntry(UWidget* Widg
 FSlateBotOperationResult USlateBotFunctionLibrary::ScrollToListEntryAndSendClick(
 	UWidget* Widget, int32 Index, const FSlateBotSendClickOptions& Options)
 {
-	const FSlateBotListEntryInfo Entry = ScrollToListEntry(Widget, Index);
-
 	FSlateBotOperationResult Result;
+
+	// Probe first: a row that is already on screen was drawn by an earlier frame, so
+	// both its geometry and its entry in the window's hit-test grid are in place and
+	// the click reaches it.
+	FSlateBotListEntryInfo Entry = GetListEntryInfo(Widget, Index);
+	if (Entry.bSuccess && Entry.EntryWidget)
+	{
+		return SendClick(Entry.EntryWidget, Options);
+	}
+
+	if (Entry.ErrorCode != ESlateBotErrorCode::WidgetNotReady)
+	{
+		// Not a virtualized row: a real error (not a ListView, out of range, ...).
+		return Result.Failure(Entry.ErrorCode, Entry.ErrorMessage);
+	}
+
+	Entry = ScrollToListEntry(Widget, Index);
 	if (!Entry.bSuccess || !Entry.EntryWidget)
 	{
 		return Result.Failure(
@@ -247,7 +262,13 @@ FSlateBotOperationResult USlateBotFunctionLibrary::ScrollToListEntryAndSendClick
 			Entry.ErrorMessage);
 	}
 
-	return SendClick(Entry.EntryWidget, Options);
+	// The row exists now, but this call created it and no frame has drawn it yet: its
+	// tick-space geometry and its entry in the window's hit-test grid are both written
+	// by the draw pass (SWidget::Paint), so a click dispatched right now cannot reach it.
+	// Report that instead of clicking into the void - the next call finds the row on
+	// screen and clicks it.
+	return Result.Failure(ESlateBotErrorCode::WidgetNotReady,
+		FString::Printf(TEXT("Row for item %d was created by this call and is not drawn yet. Call again to click it."), Index));
 }
 
 FSlateBotOperationResult USlateBotFunctionLibrary::SendClick(UWidget* Widget, const FSlateBotSendClickOptions& Options)
@@ -280,6 +301,15 @@ FSlateBotOperationResult USlateBotFunctionLibrary::SendClick(UWidget* Widget, co
 	}
 
 	const FGeometry& Geometry = SlateWidget->GetCachedGeometry();
+	if (Geometry.GetAbsoluteSize().IsNearlyZero())
+	{
+		// Never painted (or collapsed): the click point would degenerate to the screen
+		// origin. Report it as not ready so the caller retries instead of clicking nothing.
+		Result.Failure(ESlateBotErrorCode::WidgetNotReady,
+			TEXT("Widget has no painted geometry yet (zero size). If it was just created, retry after the next frame."));
+		return Result;
+	}
+
 	const FVector2D Clamped(FMath::Clamp(Options.RelativePosition.X, 0.f, 1.f),
 	                        FMath::Clamp(Options.RelativePosition.Y, 0.f, 1.f));
 	const FVector2D ClickPoint = Geometry.GetAbsolutePosition() + Geometry.GetAbsoluteSize() * Clamped;

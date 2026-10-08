@@ -104,7 +104,7 @@
 | `GetListViewInfo` | 读 ListView 的 item 列表（总数 / 每项 item 对象与其 UClass） | `Widget` |
 | `GetListEntryInfo` | 取某 item 的**行控件**（**只读**：该项虚拟化在外时返回 `WidgetNotReady`） | `Widget`、`Index` |
 | `ScrollToListEntry` | 滚到某 item 并返回它的**行控件**（没行时当场滚动 + 驱动 tick 造出来；已在视野里则不动） | `Widget`、`Index` |
-| `ScrollToListEntryAndSendClick` | `ScrollToListEntry` 之后再 `SendClick` 该行 | `Widget`、`Index`、`Options` |
+| `ScrollToListEntryAndSendClick` | `ScrollToListEntry` 之后再 `SendClick` 该行；**该项原本虚拟化在外时，第一次只造行并返回 `WidgetNotReady`，再调一次才点中** | `Widget`、`Index`、`Options` |
 | `SendClick` | 模拟点击 | `Widget`、`Options` |
 | `SendMouseMove` | 把光标移到控件内的相对位置但**不点击**（触发 hover / tooltip） | `Widget`、`RelativePosition`、`ModifierKeys` |
 | `SendMouseWheel` | 在控件上滚轮：正=上滚/放大，负=下滚/缩小 | `Widget`、`Delta` |

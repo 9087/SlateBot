@@ -682,6 +682,13 @@ public:
 	/**
 	 * Scrolls the list to one item, then clicks its row.
 	 *
+	 * An item that is already on screen is clicked in this same call. An item that was
+	 * virtualized out has no row yet: this call creates it, but a row becomes clickable
+	 * only after a frame has drawn it - drawing is what registers a widget's geometry
+	 * and its place in the hit-test grid. That case reports
+	 * ESlateBotErrorCode::WidgetNotReady instead of clicking into the void; call again
+	 * and the row (now on screen) is clicked.
+	 *
 	 * @param Widget   The UListView.
 	 * @param Index    Item index (0-based).
 	 * @param Options  Which button, and where inside the row, to click.
