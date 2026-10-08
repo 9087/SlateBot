@@ -104,7 +104,7 @@
 | `GetListViewInfo` | 读 ListView 的 item 列表（总数 / 每项 item 对象与其 UClass） | `Widget` |
 | `GetListEntryInfo` | 取某 item 的**行控件**（**只读**：该项虚拟化在外时返回 `WidgetNotReady`） | `Widget`、`Index` |
 | `ScrollToListEntry` | 滚到某 item 并返回它的**行控件**（没行时当场滚动 + 驱动 tick 造出来；已在视野里则不动） | `Widget`、`Index` |
-| `ScrollToListEntryAndSendClick` | `ScrollToListEntry` 之后再 `SendClick` 该行；**该项原本虚拟化在外时，第一次只造行并返回 `WidgetNotReady`，再调一次才点中** | `Widget`、`Index`、`Options` |
+| `ScrollToListEntryAndSendClick` | `ScrollToListEntry` 之后再 `SendClick` 该行；**该项原本虚拟化在外时，第一次只造行并返回 `RetryAfterDraw`，再调一次才点中** | `Widget`、`Index`、`Options` |
 | `SendClick` | 模拟点击 | `Widget`、`Options` |
 | `SendMouseMove` | 把光标移到控件内的相对位置但**不点击**（触发 hover / tooltip） | `Widget`、`RelativePosition`、`ModifierKeys` |
 | `SendMouseWheel` | 在控件上滚轮：正=上滚/放大，负=下滚/缩小 | `Widget`、`Delta` |
@@ -120,6 +120,7 @@
 - **在调用方（脚本 / HTTP 客户端）这一侧等待是安全的** —— 所以"等一会儿再读"应该写在脚本里（`sleep` 后重新调用），不要指望引擎新增一个 wait 函数。
 - 要"等反馈"：用 `GetWidgetTreeDiff` 的 Add/Change/Delete 维护一份本地模型，反复调用直到连续两次都没有变化（稳定）为止。
 - 异步动作另算：`SendDrag` 返回只表示**已调度**，轮询 `IsMouseInputPending` 回到 false 后再读结果。
+- 错误码区分重试：`RetryAfterDraw` 表示「动作已经推进，下一帧再调一次就成」；其它 `WidgetNotReady`（例如 `GetListEntryInfo` 拿不到行）重试没用，得先让那一行进视野。
 
 ### 对象路径 & 动态前缀
 - 用 **UMG 对象路径**引用控件，如 `/Engine/Transient.World_3:App_C_0.WidgetTree_0.SomeWidget`。

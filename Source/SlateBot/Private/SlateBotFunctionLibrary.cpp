@@ -276,7 +276,7 @@ FSlateBotOperationResult USlateBotFunctionLibrary::ScrollToListEntryAndSendClick
 	// by the draw pass (SWidget::Paint), so a click dispatched right now cannot reach it.
 	// Report that instead of clicking into the void - the next call finds the row on
 	// screen and clicks it.
-	return Result.Failure(ESlateBotErrorCode::WidgetNotReady,
+	return Result.Failure(ESlateBotErrorCode::RetryAfterDraw,
 		FString::Printf(TEXT("Row for item %d was created by this call and is not drawn yet. Call again to click it."), Index));
 }
 

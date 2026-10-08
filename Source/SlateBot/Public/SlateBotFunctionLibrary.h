@@ -54,6 +54,11 @@ enum class ESlateBotErrorCode : uint8
 	// A mouse input is already in progress (e.g. an async SendDrag is running),
 	// so this new mouse input was rejected instead of colliding with it.
 	InputInProgress UMETA(DisplayName = "InputInProgress"),
+	// The operation is already set up, but the widget it targets cannot be drawn yet:
+	// a row created by this call becomes clickable once the next frame has drawn it
+	// (drawing is what writes a widget's geometry and its hit-test entry). Unlike a
+	// plain WidgetNotReady, retrying immediately is exactly the right move.
+	RetryAfterDraw  UMETA(DisplayName = "RetryAfterDraw"),
 };
 
 USTRUCT(BlueprintType)
@@ -688,7 +693,7 @@ public:
 	 * virtualized out has no row yet: this call creates it, but a row becomes clickable
 	 * only after a frame has drawn it - drawing is what registers a widget's geometry
 	 * and its place in the hit-test grid. That case reports
-	 * ESlateBotErrorCode::WidgetNotReady instead of clicking into the void; call again
+	 * ESlateBotErrorCode::RetryAfterDraw instead of clicking into the void; call again
 	 * and the row (now on screen) is clicked.
 	 *
 	 * @param Widget   The UListView.

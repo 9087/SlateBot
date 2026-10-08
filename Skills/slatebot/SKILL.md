@@ -102,6 +102,9 @@ tree2=rpc("GetWidgetTreeDiff", InstanceName=inst)     # ④ verify
   `Add`/`Change`/`Delete` until two consecutive reads report no changes (settled).
 - Async actions are separate: `SendDrag` returning means **scheduled**; poll `IsMouseInputPending`
   until it is false, then read the result.
+- Retryable vs not: `RetryAfterDraw` means "the action moved forward, call again next frame"; any
+  other `WidgetNotReady` (e.g. `GetListEntryInfo` has no row) does not improve by retrying - bring
+  that item into view first.
 
 ---
 
